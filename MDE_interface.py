@@ -1,3 +1,7 @@
+import numpy as np
+from scipy.io import wavfile
+import scipy.signal as signal
+import matplotlib.pyplot as plt
 
 # ------------------------- [RECORD AUDIO/SIGNAL INPUT] ------------------------- 
 '''
