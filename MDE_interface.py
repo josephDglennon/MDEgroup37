@@ -2,7 +2,26 @@ import numpy as np
 from scipy.io import wavfile
 import scipy.signal as signal
 import matplotlib.pyplot as plt
+from pydub import AudioSegment
 
+#-------------------------- [Demo for PDR]---------------------------------------
+# Load MP3 audio and convert it to WAV
+mp3_audio = AudioSegment.from_mp3('fox_audio_Drone_Falcon_06_160.mp3')
+mp3_audio.export('audio.wav', format="wav")
+
+# Read the WAV file
+sample_rate, audio_data = wavfile.read('audio.wav')
+
+duration = len(audio_data) / sample_rate  # Duration in seconds
+time = np.linspace(0, duration, len(audio_data))
+
+# Plot the waveform
+plt.figure(figsize=(10, 4))
+plt.plot(time, audio_data)
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.title('Audio Waveform')
+plt.show()
 # ------------------------- [RECORD AUDIO/SIGNAL INPUT] ------------------------- 
 '''
 Manages the microphone and any inputs relevant to the recording of a data sample
