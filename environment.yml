@@ -1,0 +1,8 @@
+name: battle-damage-assessment
+
+dependencies:
+  - matplotlib
+  - pandas
+  - pip
+  - python
+  - scipy
