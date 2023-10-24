@@ -1,4 +1,4 @@
-name: battle-damage-assessment
+name: env
 
 dependencies:
   - matplotlib
@@ -6,3 +6,4 @@ dependencies:
   - pip
   - python
   - scipy
+  - numpy
