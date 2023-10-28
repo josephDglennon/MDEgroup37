@@ -3,7 +3,7 @@ from scipy.io import wavfile
 import matplotlib.pyplot as plt
 
 # Load the .wav file
-sample_rate, audio_data = wavfile.read("testwav.wav")
+sample_rate, audio_data = wavfile.read("../../audio_data/testwav.wav")
 
 # Check the properties of the audio file
 print("Sample Rate:", sample_rate)
