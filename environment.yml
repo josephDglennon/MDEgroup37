@@ -1,4 +1,4 @@
-name: env
+name: dmg-env
 
 dependencies:
   - matplotlib
