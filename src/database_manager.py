@@ -1,3 +1,5 @@
+import sqlite3
+
 '''
 Manages the database or other storage mechanism we decide to implement
 '''
