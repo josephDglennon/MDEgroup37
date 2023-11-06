@@ -1,47 +1,41 @@
-'''
-Processes raw data and produces a new CSV or other type of output object
-representing the raw input alongside a 'damage channel'
+import librosa
+import librosa.display
+import sys
+sys.path.append('..')
 
-For example, a colum for 'input signal amplitude vs time' with a column
-for 'probable damage vs time'
-
-Statistical probability of damage incurred at time = x would be a good way to 
-represent our output data
-'''
 class SignalProcessor():
+    '''
+    This class produces a classification/prediction based on the raw data provided to it.
 
+    The signal processor is callable when instantiated and is invoked on a tuple containing raw data from the HardwareInput module to 
+    produce an output
+
+    raw_data must be a tuple: () 
     '''
-    Processor class creates a processed_data object when called
-    '''
+
     def __call__(self, raw_data):
-
-        decomposed_data = self.__decompose(raw_data)
-        return self.__process(decomposed_data)
+        '''
+        
+        '''
+        return
     
-    '''
-    Deconstruct the raw audio into usable components such as Power, Frequencies, Etc.
-    What ever useful components whe can devise to disposition the sample
-    '''
-    def __decompose(self, raw_data):
-
-        power = []
-        frequencies = []
-        trigger_signal = []
-
-        decomposed_data = [
-            power,
-            frequencies,
-            trigger_signal # definitely required for processing
-        ]
-
-        return decomposed_data
     
-    '''
-    Return a table/csv object representing our raw data alongside our annotations and any
-    additional channels devised to indicate damage recieved by the UAS
-
-    May be done through a pure math, 'hardcoded' approach or through a teachable machine-learning 
-    depending on which implementation proves most doable and most robust
-    '''
+    def __audio_to_spectrogram(self, raw_data):
+        '''
+        Create a spectrogram of the input data
+        '''
+        return
+    
     def __process(self, data_components):
         return
+    
+def main():
+    file_path = 'audio_data\drill_motor\Drill_1_Speed_Close_To_Far.wav'
+    amplitude, sample_rate = librosa.load(file_path)
+    trimmed_amplitude, _ = librosa.effects.trim(amplitude)
+    librosa.display.waveshow(trimmed_amplitude, sr=sample_rate)
+    
+    processor = SignalProcessor()
+
+if __name__ == '__main__':
+    main()
