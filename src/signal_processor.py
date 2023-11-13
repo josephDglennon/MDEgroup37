@@ -1,6 +1,10 @@
 import librosa
 import librosa.display
 import sys
+
+import matplotlib.pyplot as plt
+import matplotlib
+
 sys.path.append('..')
 
 class SignalProcessor():
@@ -30,12 +34,12 @@ class SignalProcessor():
         return
     
 def main():
+    
     file_path = 'audio_data\drill_motor\Drill_1_Speed_Close_To_Far.wav'
     amplitude, sample_rate = librosa.load(file_path)
     trimmed_amplitude, _ = librosa.effects.trim(amplitude)
     librosa.display.waveshow(trimmed_amplitude, sr=sample_rate)
-    
-    processor = SignalProcessor()
+    plt.show()
 
 if __name__ == '__main__':
     main()
