@@ -1,6 +1,12 @@
+import pyaudio
+# eventually implement a device manager to pick the desired microphone
 
 def main():
-    return
+    p = pyaudio.PyAudio()
+
+    for i in range(0, p.get_device_count()):
+        print(i, p.get_device_info_by_index(i)['name'])
+        return
 
 class HardwareInput():
     '''
@@ -11,6 +17,8 @@ class HardwareInput():
         '''
         Set up microphone and trigger
         '''
+
+
         return
 
     

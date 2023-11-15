@@ -13,4 +13,4 @@ dependencies:
     - matplotlib==3.7.2
     - pandas==2.1.1
     - pyserial==3.5
-    - pyaudio
+    - pyaudio==0.2.14
