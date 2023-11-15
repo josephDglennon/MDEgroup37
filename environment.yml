@@ -1,10 +1,16 @@
 name: dmg-env
 
 dependencies:
-  - matplotlib
-  - pandas
-  - pip
-  - python
-  - scipy
-  - numpy
-  - pytest
+  - pip=23.3
+  - python=3.11.5
+  - portaudio
+  
+  - pip:
+    - scipy==1.11.3
+    - numpy==1.26.0
+    - pytest==7.4.0
+    - librosa==0.10.1
+    - matplotlib==3.7.2
+    - pandas==2.1.1
+    - pyserial==3.5
+    - pyaudio
