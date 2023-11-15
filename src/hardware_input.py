@@ -27,7 +27,7 @@ class HardwareInput():
         
         self.audio_input_device = 1
         self.device = sounddevice.query_devices(self.audio_input_device)
-        self.sample_rate = 
+        self.sample_rate = self.device['default_samplerate']
 
         self.is_recording = False
         self.audioQueue = queue.Queue()
