@@ -1,12 +1,62 @@
-import pyaudio
 import time
-import sounddevice 
+import sounddevice
 import soundfile
-from scipy.io import wavfile
 import os
+import queue
+from numpy import ndarray
+from dataclasses import dataclass
 
 # todo: eventually implement a device manager to pick the desired microphone
 
+@dataclass
+class SampleData():
+    audio_data: ndarray
+    trigger_data: ndarray
+    sample_rate: int
+
+
+class HardwareInput():
+    '''
+    Manages the microphone and any inputs relevant to the recording of a data sample
+    '''
+
+    def __init__(self):
+        '''
+        Set up recorder
+        '''
+        
+        self.audio_input_device = 1
+        self.device = sounddevice.query_devices(self.audio_input_device)
+        self.sample_rate = 
+
+        self.is_recording = False
+        self.audioQueue = queue.Queue()
+        
+
+    
+    def start_recording(self):
+        '''
+        Begin recording data from inputs to ndArray queue
+        '''
+        self.audioQueue.queue.clear()
+
+
+        return
+    
+    
+    def stop_recording(self):
+        '''
+        Stop recording sample
+        '''
+        return
+    
+    
+    def get_data(self):
+        '''
+        Return a SampleData object containing audio array, trigger array, and samplerate
+        '''
+        return
+    
 def main():
     
     #sounddevice.default.channels = 1, 5
@@ -22,39 +72,5 @@ def main():
     #time.sleep(1)
     #sounddevice.stop()
 
-class HardwareInput():
-    '''
-    Manages the microphone and any inputs relevant to the recording of a data sample
-    '''
-
-    def __init__(self):
-        '''
-        Set up microphone and trigger
-        '''
-
-
-        return
-
-    
-    def start_recording(self):
-        '''
-        Begin recording data from inputs to a csv file or python table
-        '''
-        return
-    
-    
-    def stop_recording(self):
-        '''
-        Stop recording sample
-        '''
-        return
-    
-    
-    def get_data(self):
-        '''
-        Return a DmgData object containing the newly recorded data sample
-        '''
-        return
-    
 if __name__ == '__main__':
     main()
