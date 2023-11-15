@@ -1,12 +1,26 @@
 import pyaudio
-# eventually implement a device manager to pick the desired microphone
+import time
+import sounddevice 
+import soundfile
+from scipy.io import wavfile
+import os
+
+# todo: eventually implement a device manager to pick the desired microphone
 
 def main():
-    p = pyaudio.PyAudio()
+    
+    #sounddevice.default.channels = 1, 5
+    #sounddevice.default.device = 5
+    print(sounddevice.query_devices())
 
-    for i in range(0, p.get_device_count()):
-        print(i, p.get_device_info_by_index(i)['name'])
-        return
+    this_path = os.path.dirname(__file__)
+    print(this_path)
+    print('default: ' + str(sounddevice.default.device))
+    filename = this_path + "/../audio_data/drill_motor/Drill_1_Speed_Close_To_Far.wav"
+    data, fs = soundfile.read(filename)  
+    #sounddevice.play(data, fs)
+    #time.sleep(1)
+    #sounddevice.stop()
 
 class HardwareInput():
     '''
