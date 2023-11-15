@@ -1,7 +1,9 @@
 import time
 import sounddevice
+from sounddevice import CallbackFlags
 import soundfile
 import os
+import sys
 import queue
 from numpy import ndarray
 from dataclasses import dataclass
@@ -9,7 +11,7 @@ from dataclasses import dataclass
 # todo: eventually implement a device manager to pick the desired microphone
 
 @dataclass
-class SampleData():
+class DmgData():
     audio_data: ndarray
     trigger_data: ndarray
     sample_rate: int
@@ -25,9 +27,10 @@ class HardwareInput():
         Set up recorder
         '''
         
-        self.audio_input_device = 1
-        self.device = sounddevice.query_devices(self.audio_input_device)
-        self.sample_rate = self.device['default_samplerate']
+        self.audio_input_device_ID = 1
+        self.device_info = sounddevice.query_devices(self.audio_input_device_ID)
+        self.sample_rate = int(self.device_info['default_samplerate'])
+        #self.channels = int(self.device_info[''])
 
         self.is_recording = False
         self.audioQueue = queue.Queue()
@@ -38,10 +41,17 @@ class HardwareInput():
         '''
         Begin recording data from inputs to ndArray queue
         '''
-        self.audioQueue.queue.clear()
+
+        self.audioQueue = queue.Queue()
+        self.is_recording = True
+
+        def callback(indata: ndarray, frames: int, time: CData, status: CallbackFlags) -> None:
+            nonlocal self
+            if status:
+                print(status, file=sys.stderr)
+            self.audioQueue.put(indata.copy())
 
 
-        return
     
     
     def stop_recording(self):
