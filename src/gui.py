@@ -30,6 +30,7 @@ class BooleanToggleApp:
 
         # device controller
         self.device = DeviceController()
+        self.spectrogram = None
 
     def toggle(self):
         # toggle the boolean value
@@ -43,13 +44,15 @@ class BooleanToggleApp:
         else:
             self.toggle_button.config(text="Start Recording")
             self.device.end_recording()
+            self.last_recording = self.device.input_controller.get_data()
             self.play_last_button["state"] = "normal"
-            
             
 
     def play_last(self):
-        last_recording = self.device.input_controller.get_data()
-        sounddevice.play(last_recording.audio_data, last_recording.sample_rate)
+        sounddevice.play(self.last_recording.audio_data, self.last_recording.sample_rate)
+
+    def generate_spectrogram(self):
+        spectrogram = self.device.processor.__audio_to_spectrogram(self.last_recording)
 
     def open_assessments_viewer(self):
         # create a new window for viewing assessments
