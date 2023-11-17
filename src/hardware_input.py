@@ -40,7 +40,7 @@ class HardwareInput():
         self._audio_input_device_ID = 1
         self._device_info = sounddevice.query_devices(self._audio_input_device_ID)
         self._sample_rate = int(self._device_info['default_samplerate'])
-        self._channels = int(self._device_info['max_input_channels'])
+        self._channels = 2 #int(self._device_info['max_input_channels'])
 
         self._audio_stream = sounddevice.InputStream(samplerate=self._sample_rate, device=self._audio_input_device_ID,
                                     channels=self._channels, callback=callback)

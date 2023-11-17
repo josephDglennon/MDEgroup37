@@ -4,14 +4,10 @@ from database_manager import DatabaseManager
 
 
 class DeviceController():
-    '''
-    Main controls for device
-    '''
+    """Main controls for device"""
     
     def __init__(self):
-        '''
-        Setup component objects
-        '''
+        """Setup component objects"""
 
         self.input_controller = HardwareInput()
         self.processor = SignalProcessor()
@@ -19,9 +15,7 @@ class DeviceController():
     
     
     def start_new_recording(self):
-        '''
-        Initiate new recording 
-        '''
+        """Initiate new recording"""
 
         self.input_controller.start_recording()
 
@@ -33,8 +27,8 @@ class DeviceController():
 
         self.input_controller.stop_recording()
         recording = self.input_controller.get_data()
-        processed_data = self.processor(recording)
-        self.database.save_new_entry(processed_data)
+        #processed_data = self.processor(recording)
+        #self.database.save_new_entry(processed_data)
 
 
     def list_entries(self):

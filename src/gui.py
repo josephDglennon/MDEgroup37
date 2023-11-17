@@ -1,9 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 import os
+import sounddevice
+from device_controller import DeviceController
 
 class BooleanToggleApp:
     def __init__(self, master):
+
         self.master = master
         self.master.title("Boolean Toggle App")
 
@@ -13,6 +16,10 @@ class BooleanToggleApp:
         self.toggle_button = tk.Button(master, text="Start Recording", command=self.toggle)
         self.toggle_button.pack(pady=10)
 
+        # play last button
+        self.play_last_button = tk.Button(master, text='Play Last Recording', command=self.play_last)
+        self.play_last_button.pack(pady=10)
+
         # create a button to open the assessments viewer menu
         self.view_assessments_button = tk.Button(master, text="View Assessments", command=self.open_assessments_viewer)
         self.view_assessments_button.pack(pady=10)
@@ -21,6 +28,9 @@ class BooleanToggleApp:
         self.load_assessment_button = tk.Button(master, text="Load Assessment File", command=self.load_assessment_file)
         self.load_assessment_button.pack(pady=10)
 
+        # device controller
+        self.device = DeviceController()
+
     def toggle(self):
         # toggle the boolean value
         self.recording = not self.recording
@@ -28,8 +38,18 @@ class BooleanToggleApp:
         # update the button text based on the boolean value
         if self.recording:
             self.toggle_button.config(text="Stop Recording")
+            self.device.start_new_recording()
+            self.play_last_button["state"] = "disabled"
         else:
             self.toggle_button.config(text="Start Recording")
+            self.device.end_recording()
+            self.play_last_button["state"] = "normal"
+            
+            
+
+    def play_last(self):
+        last_recording = self.device.input_controller.get_data()
+        sounddevice.play(last_recording.audio_data, last_recording.sample_rate)
 
     def open_assessments_viewer(self):
         # create a new window for viewing assessments
