@@ -55,6 +55,13 @@ def main():
     librosa.display.waveshow(trimmed_amplitude, sr=sample_rate)
     plt.show()
 
+    signal_processor = SignalProcessor()
+
+    save_folder = 'output'
+    signal_processor.visualize_audio(DmgData(audio_data=trimmed_amplitude, sample_rate=sample_rate),
+                                 save_folder=save_folder)
+
+
 def visualize_audio(raw_data: DmgData):
     """Helper function to visualize an audio signal in the time and frequency domain."""
 
