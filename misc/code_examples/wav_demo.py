@@ -1,40 +1,47 @@
 import numpy as np
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
+import sys
 
-# Load the .wav file
-sample_rate, audio_data = wavfile.read("../../audio_data/testwav.wav")
+sys.path.append('..')
 
-# Check the properties of the audio file
-print("Sample Rate:", sample_rate)
-print("Audio Data Shape:", audio_data.shape)
+def main():
 
-# Calculate the Fast Fourier Transform (FFT) of the audio data
-fft_result = np.fft.fft(audio_data)
-fft_result = np.abs(fft_result)  # Take the absolute value to get magnitude
+    # Load the .wav file
+    sample_rate, audio_data = wavfile.read("audio_data/testwav.wav")
 
-# Calculate the frequency values corresponding to the FFT result
-num_samples = len(fft_result)
-frequencies = np.fft.fftfreq(num_samples, 1.0 / sample_rate)
+    # Check the properties of the audio file
+    print("Sample Rate:", sample_rate)
+    print("Audio Data Shape:", audio_data.shape)
 
-# Create subplots to display both the time-domain and frequency-domain graphs
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+    # Calculate the Fast Fourier Transform (FFT) of the audio data
+    fft_result = np.fft.fft(audio_data)
+    fft_result = np.abs(fft_result)  # Take the absolute value to get magnitude
 
-# Plot the time-domain waveform
-ax1.plot(np.arange(len(audio_data)) / sample_rate, audio_data)
-ax1.set_title("Time-Domain Waveform")
-ax1.set_xlabel("Time (s)")
-ax1.set_ylabel("Amplitude")
+    # Calculate the frequency values corresponding to the FFT result
+    num_samples = len(fft_result)
+    frequencies = np.fft.fftfreq(num_samples, 1.0 / sample_rate)
 
-# Plot the frequency content
-ax2.plot(frequencies, fft_result)
-ax2.set_title("Frequency Content")
-ax2.set_xlabel("Frequency (Hz)")
-ax2.set_ylabel("Magnitude")
-ax2.grid(True)
-ax2.set_xlim(0, sample_rate / 2)  # Display positive frequencies (up to Nyquist)
+    # Create subplots to display both the time-domain and frequency-domain graphs
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
-# Adjust spacing between subplots
-plt.tight_layout()
+    # Plot the time-domain waveform
+    ax1.plot(np.arange(len(audio_data)) / sample_rate, audio_data)
+    ax1.set_title("Time-Domain Waveform")
+    ax1.set_xlabel("Time (s)")
+    ax1.set_ylabel("Amplitude")
 
-plt.show()
+    # Plot the frequency content
+    ax2.plot(frequencies, fft_result)
+    ax2.set_title("Frequency Content")
+    ax2.set_xlabel("Frequency (Hz)")
+    ax2.set_ylabel("Magnitude")
+    ax2.grid(True)
+    ax2.set_xlim(0, sample_rate / 2)  # Display positive frequencies (up to Nyquist)
+
+    # Adjust spacing between subplots
+    plt.tight_layout()
+
+    plt.show()
+
+main()

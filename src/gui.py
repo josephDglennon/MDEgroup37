@@ -19,6 +19,10 @@ class BooleanToggleApp:
         # play last button
         self.play_last_button = tk.Button(master, text='Play Last Recording', command=self.play_last)
         self.play_last_button.pack(pady=10)
+        
+        # show spectrogram button
+        self.spectro_button = tk.Button(master, text="Spectrogram", command=self.generate_spectrogram)
+        self.spectro_button.pack(pady=10)
 
         # create a button to open the assessments viewer menu
         self.view_assessments_button = tk.Button(master, text="View Assessments", command=self.open_assessments_viewer)
@@ -41,18 +45,20 @@ class BooleanToggleApp:
             self.toggle_button.config(text="Stop Recording")
             self.device.start_new_recording()
             self.play_last_button["state"] = "disabled"
+            self.spectro_button["state"] = "disabled"
         else:
             self.toggle_button.config(text="Start Recording")
             self.device.end_recording()
             self.last_recording = self.device.input_controller.get_data()
             self.play_last_button["state"] = "normal"
+            self.spectro_button["state"] = "normal"
             
 
     def play_last(self):
-        sounddevice.play(self.last_recording.audio_data, self.last_recording.sample_rate)
+        sounddevice.play(self.last_recording.audio_data, self.last_recording.sample_rate, device=5)
 
     def generate_spectrogram(self):
-        spectrogram = self.device.processor.__audio_to_spectrogram(self.last_recording)
+        spectrogram = self.device.processor._audio_to_spectrogram(self.last_recording)
 
     def open_assessments_viewer(self):
         # create a new window for viewing assessments

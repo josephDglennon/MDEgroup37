@@ -37,6 +37,7 @@ class HardwareInput():
 
             self._audio_blocks.append(indata.copy())
 
+
         self._audio_input_device_ID = 1
         self._device_info = sounddevice.query_devices(self._audio_input_device_ID)
         self._sample_rate = int(self._device_info['default_samplerate'])
@@ -78,6 +79,7 @@ class HardwareInput():
     
 def main():
 
+    """
     hardware = HardwareInput()
     hardware.start_recording()
     time.sleep(3)
@@ -87,21 +89,22 @@ def main():
     sounddevice.play(data.audio_data, data.sample_rate)
     time.sleep(4)
     sounddevice.stop()
+    """
     
-    '''
-    #sounddevice.default.channels = 1, 5
+    
+    sounddevice.default.channels = 1, 5
     #sounddevice.default.device = 5
     print(sounddevice.query_devices())
 
     this_path = os.path.dirname(__file__)
     print(this_path)
     print('default: ' + str(sounddevice.default.device))
-    filename = this_path + "/../audio_data/drill_motor/Drill_1_Speed_Close_To_Far.wav"
-    data, fs = soundfile.read(filename)  
+    #filename = this_path + "/../audio_data/drill_motor/Drill_1_Speed_Close_To_Far.wav"
+    #data, fs = soundfile.read(filename)  
     #sounddevice.play(data, fs)
     #time.sleep(1)
     #sounddevice.stop()
-    '''
+    
     
 if __name__ == '__main__':
     try:
