@@ -37,6 +37,7 @@ class HardwareInput():
 
             self._audio_blocks.append(indata.copy())
 
+        
 
         self._audio_input_device_ID = 1
         self._device_info = sounddevice.query_devices(self._audio_input_device_ID)

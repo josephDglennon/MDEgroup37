@@ -1,8 +1,10 @@
 import sqlite3
 
+from dataclasses import dataclass
+
 class DatabaseManager():
     '''
-    Manages the database or other storage mechanism we decide to implement
+    Permits access to the device storage system
     '''
 
     def save_new_entry(data):

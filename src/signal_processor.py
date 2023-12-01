@@ -51,9 +51,15 @@ def main():
     
     file_path = 'audio_data\drill_motor\Drill_1_Speed_Close_To_Far.wav'
     amplitude, sample_rate = librosa.load(file_path)
-    trimmed_amplitude, _ = librosa.effects.trim(amplitude)
+    package = DmgData
+    package.audio_data = amplitude
+    package.sample_rate = sample_rate
+
+    visualize_audio(package)
+
+    '''trimmed_amplitude, _ = librosa.effects.trim(amplitude)
     librosa.display.waveshow(trimmed_amplitude, sr=sample_rate)
-    plt.show()
+    plt.show()'''
 
 def visualize_audio(raw_data: DmgData):
     """Helper function to visualize an audio signal in the time and frequency domain."""

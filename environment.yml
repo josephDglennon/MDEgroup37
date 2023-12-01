@@ -16,3 +16,4 @@ dependencies:
     - pyaudio==0.2.14
     - sounddevice
     - soundfile
+    - customtkinter
