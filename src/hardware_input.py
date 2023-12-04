@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class DmgData():
-    """Data carrier object inter-module device operations"""
+    """Data class for serving test data between modules"""
     audio_data: ndarray = field(init=False)
     trigger_data: ndarray = field(init=False)
     sample_rate: int = field(init=False)

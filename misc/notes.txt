@@ -1,0 +1,5 @@
+- AI model should determine at what times damage was detected in the sample
+    - Cross reference the HPM trigger time stamps with this to determine the damage score
+
+- Would it be easiest and possibly best to save audio directly in database and recall via that?
+    - Or should we stage everything in some kind of data class before loading it into the database?
