@@ -1,6 +1,9 @@
+
+import database_manager as db
+
 from hardware_input import HardwareInput
 from signal_processor import SignalProcessor
-from database_manager import DatabaseManager
+from database_manager import TestData
 
 
 class DeviceController():
@@ -11,7 +14,6 @@ class DeviceController():
 
         self.input_controller = HardwareInput()
         self.processor = SignalProcessor()
-        self.database = DatabaseManager()
     
     
     def start_new_recording(self):

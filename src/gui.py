@@ -2,10 +2,12 @@
 import os
 import sounddevice
 import device_controller
+import database_manager as db
 import customtkinter
 import logging
 
-from typing import Callable, Optional, Tuple, Union
+from database_manager import TestData
+from typing import Callable, Tuple
 from customtkinter import (
     CTk,
     CTkFrame,
@@ -17,7 +19,8 @@ from customtkinter import (
     CTkScrollableFrame,
     CTkCheckBox,
     CTkProgressBar,
-    CTkToplevel
+    CTkToplevel,
+    CTkSegmentedButton
 )
 
 # App sizing
@@ -33,6 +36,7 @@ CONTAINER_COLOR = 'gray14'
 CONTAINER_BORDER_COLOR = 'gray20'
 BACKGROUND_COLOR = 'gray17'
 BACKGROUND_COLOR_HIGHLIGHTED = 'gray14'
+ITEM_COLOR = 'gray20'
 
 customtkinter.set_appearance_mode("Dark")
 customtkinter.set_default_color_theme("blue")
@@ -87,53 +91,65 @@ class MainWindow(CTk):
 
         # context frames
         self.context_frames = {}
-        for frame_class in (LandingFrame,
-                            ViewTestFrame,
-                            EditTestFrame,
-                            OpenTestFrame,
-                            SettingsFrame):
+        for frame_class in (LandingContextFrame,
+                            ViewTestContextFrame,
+                            EditTestContextFrame,
+                            OpenTestContextFrame,
+                            SettingsContextFrame):
 
-            frame_instance = frame_class(self.context_pane)
+            frame_instance = frame_class(self.context_pane, self)
             
             self.context_frames[frame_class] = frame_instance
 
             frame_instance.grid(row=0, column=0, sticky='nsew')
             frame_instance._corner_radius = 0
 
-        self.show_frame(EditTestFrame)
+        self.show_frame(LandingContextFrame)
 
     def show_frame(self, frame_class):
         frame_instance = self.context_frames[frame_class]
         frame_instance.tkraise()
 
     def new_test_button_handler(self):
-        self.show_frame(EditTestFrame)
+        self.show_frame(EditTestContextFrame)
         return
     
     def open_test_button_handler(self):
-        self.show_frame(OpenTestFrame)
+        self.show_frame(OpenTestContextFrame)
         return
 
     def settings_button_handler(self):
-        self.show_frame(SettingsFrame)
+        self.show_frame(SettingsContextFrame)
         return 
 
 
-class LandingFrame(CTkFrame):
-    def __init__(self, parent):
+class LandingContextFrame(CTkFrame):
+    def __init__(self, parent, controller):
         super().__init__(parent)
 
+        # header label
+        self.header_label = CTkLabel(self,
+                                     text="UAS Damage Assessment Tool",
+                                     font=CTkFont(size=20, weight="bold"))
+        self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
 
-class ViewTestFrame(CTkFrame):
-    def __init__(self, parent):
+
+class ViewTestContextFrame(CTkFrame):
+    def __init__(self, parent, controller):
         super().__init__(parent)
 
+        self.parent = parent
+        self.controller = controller
 
-class EditTestFrame(CTkFrame):
-    def __init__(self, parent):
+
+class EditTestContextFrame(CTkFrame):
+    """This context panel allows the user to edit, save, and/or delete a test entry."""
+
+    def __init__(self, parent, controller):
         super().__init__(parent)
 
-        self.parent=parent
+        self.parent = parent
+        self.controller = controller
 
         self.columnconfigure((0,1), weight=0)
         self.columnconfigure(2, weight=1)
@@ -143,7 +159,7 @@ class EditTestFrame(CTkFrame):
         self.header_label = CTkLabel(self,
                                      text="Edit Test Data",
                                      font=CTkFont(size=20, weight="bold"))
-        self.header_label.grid(row=0, column=0, padx=20, pady=20)
+        self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
 
         # test name label and field
         self.test_name_label = CTkLabel(self, text='Test name:',
@@ -179,9 +195,7 @@ class EditTestFrame(CTkFrame):
         self.sample_cursor_time.grid(row=1, column=0, columnspan=3)
         self.record_button = CTkButton(self.sample_recording_frame, width=75,
                                        text='Record',
-                                       command=None,
-                                       fg_color=WARNING_COLOR,
-                                       hover_color=WARNING_COLOR_HIGHLIGHTED)
+                                       command=None)
         self.record_button.grid(row=2, column=0, padx=2, pady=3, sticky='nsew')
         self.play_button = CTkButton(self.sample_recording_frame,  width=75,
                                      text='Play',
@@ -189,7 +203,9 @@ class EditTestFrame(CTkFrame):
         self.play_button.grid(row=2, column=1, padx=2, pady=3, sticky='nsew')
         self.stop_button = CTkButton(self.sample_recording_frame,  width=75,
                                      text='Stop',
-                                     command=None)
+                                     command=None,
+                                     fg_color=WARNING_COLOR,
+                                     hover_color=WARNING_COLOR_HIGHLIGHTED)
         self.stop_button.grid(row=2, column=2, padx=2, pady=3, sticky='nsew')
 
         # process sample button
@@ -205,7 +221,7 @@ class EditTestFrame(CTkFrame):
         self.progress_bar.grid(row=7, column=0, pady=10)
 
         # insert tag select frame
-        self.tag_select_frame = SelectTagsFrame(self)
+        self.tag_select_frame = TagContainer(self)
         self.tag_select_frame.grid(row=1, column=1, rowspan=4, sticky='nsew')
         
         # new tag button
@@ -265,7 +281,7 @@ class EditTestFrame(CTkFrame):
     def delete_button_handler(self):
 
         def confirm_delete():
-            return
+            self.controller.show_frame(LandingContextFrame)
         
         def cancel_delete():
             return
@@ -282,6 +298,7 @@ class EditTestFrame(CTkFrame):
     def cancel_button_handler(self):
 
         def confirm_cancel():
+            self.controller.show_frame(LandingContextFrame)
             return
         
         def cancel_cancel():
@@ -297,17 +314,11 @@ class EditTestFrame(CTkFrame):
             pass # prevents multiple prompts from spawning
 
 
-class OpenTestFrame(CTkFrame):
-    def __init__(self, parent):
-        super().__init__(parent)
-
-
-class SettingsFrame(CTkFrame):
-    def __init__(self, parent):
-        super().__init__(parent)
-
-
 class OutputSummaryFrame(CTkFrame):
+    """Frame which displays the results of running the processor on the
+    recorded sample.
+    """
+
     def __init__(self, parent,):
         super().__init__(parent,  width=300, border_width=2,
                          fg_color=CONTAINER_COLOR,
@@ -321,8 +332,18 @@ class OutputSummaryFrame(CTkFrame):
         self.summary_header.grid(row=0, column=0, sticky='nsew', pady=5, padx=5)
 
 
-class SelectTagsFrame(CTkFrame):
-    def __init__(self, parent):
+class TagContainer(CTkFrame):
+    """Frame for displaying tag objects in.
+    
+    Parameters
+    ----------
+    parent: Any, 
+    """
+
+    def __init__(self, 
+                 parent,
+                 enable_delete=True,
+                 header_text='Tags'):
         super().__init__(parent,
                          fg_color=CONTAINER_COLOR)
 
@@ -330,10 +351,11 @@ class SelectTagsFrame(CTkFrame):
         self.grid_rowconfigure(0, weight=1)
 
         self.num_tags = 0
+        self.enable_delete = enable_delete
 
         # frame header
         self.header = CTkLabel(self,
-                               text='Tags',
+                               text=header_text,
                                font=CTkFont(size=14))
         self.header.grid(row=0, column=0, sticky='n', pady=5)
 
@@ -351,34 +373,54 @@ class SelectTagsFrame(CTkFrame):
     def add_tag(self, text: str):
         self.num_tags += 1
         new_tag = TagItem(self.tag_scroll_frame,
-                          tag_name=text)
-        new_tag.grid(row=(self.num_tags - 1), column=0)
+                          tag_name=text,
+                          enable_delete=self.enable_delete)
+        new_tag.grid(row=(self.num_tags - 1), column=0, sticky='ew')
+
 
 class TagItem(CTkFrame):
-    def __init__(self, parent, tag_name: str='tag', tag_id: int=0):
-        # limit name to 21 characters
-        super().__init__(parent, fg_color='gray20',)
+    """A GUI object representing a tag with an activation checkbox and delete button."""
+
+    def __init__(self,
+                 parent=None,
+                 tag_name: str='tag',
+                 tag_id: int=0,
+                 enable_delete: bool=True):
+        """Constructs a GUI representation of a tag
+        
+        Parameters
+        ----------
+        parent: Any, optional
+        tag_name: str, optional
+            The text displayed on the tag
+        """
+        
+        super().__init__(parent, fg_color=ITEM_COLOR,)
         
         self.grid(padx=3, pady=3, sticky='nsew')
         self.grid_columnconfigure((0,1,2), weight=1)
 
-        self.active_check_box = CTkCheckBox(self, width=15, border_width=2,
+        self.enabled = False
+
+        self.check_box = CTkCheckBox(self, width=15, border_width=2,
                                             text='')
-        self.active_check_box.grid(row=0, column=0, sticky='w', padx=5, pady=5)
+        self.check_box.grid(row=0, column=0, sticky='w', padx=5, pady=5)
 
         self.tag_name = CTkLabel(self, text=tag_name, width=120)
         self.tag_name.grid(row=0, column=1)
 
-        self.delete_button = CTkButton(self,
-                                       text='X',
-                                       width=15,
-                                       border_width=0,
-                                       fg_color='red3',
-                                       hover_color='red4',
-                                       command=self.delete_button_handler)
-        self.delete_button.grid(row=0, column=2, sticky='e', padx=5)
+        if enable_delete:
+            self.delete_button = CTkButton(self,
+                                            text='X',
+                                            width=15,
+                                            border_width=0,
+                                            fg_color='red3',
+                                            hover_color='red4',
+                                            command=self.delete_button_handler)
+            self.delete_button.grid(row=0, column=2, sticky='e', padx=5)
 
     def delete_button_handler(self):
+        """Executed when the 'X' button is clicked."""
 
         def action_confirmed():
             nonlocal self
@@ -390,6 +432,172 @@ class TagItem(CTkFrame):
                                    confirm_command=action_confirmed)
         except SpawnPromptError:
             pass # prevent multiple prompts from spawning
+
+
+class OpenTestContextFrame(CTkFrame):
+    """Context pane for opening a specific saved test entry."""
+
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+
+        self.parent = parent
+        self.controller = controller
+
+        self.grid_columnconfigure((0), weight=4)
+        self.grid_columnconfigure(2, weight=0)
+        self.grid_columnconfigure((1,3), weight=1)
+        self.grid_rowconfigure(2, weight=3)
+        self.grid_rowconfigure((0,1,3), weight=0)
+
+        # header label
+        self.header_label = CTkLabel(self,
+                                     text="Open Test",
+                                     font=CTkFont(size=20, weight="bold"))
+        self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
+
+        # search field
+        self.search_field = SearchField(self, command=None)
+        self.search_field.grid(row=1, column=0, padx=20, sticky='nw')
+
+        # insert search table
+        self.search_table = SearchTable(self)
+        self.search_table.grid(row=2, column=0, padx=20, pady=20, sticky='nsew')
+        #self.search_table.populate()
+
+        # insert tag container
+        self.tag_container = TagContainer(self,
+                                          enable_delete=False,
+                                          header_text='Filter by tag')
+        self.tag_container.grid(row=2, column=2, pady=20, sticky='n')
+
+        # open, cancel, and delete button
+        button_container = CTkFrame(self, fg_color=BACKGROUND_COLOR)
+        button_container.grid(row=3, column=0, padx=20, pady=20, sticky='we')
+        button_container.grid_columnconfigure((0,1), weight=0)
+        button_container.grid_columnconfigure(2, weight=1)
+        self.open_button = CTkButton(button_container, width=75,
+                                     text='Open',
+                                     command=self.open_button_handler)
+        self.open_button.grid(row=0, column=0)
+        self.cancel_button = CTkButton(button_container, width=75,
+                                       text='Cancel',
+                                       command=self.cancel_button_handler)
+        self.cancel_button.grid(row=0, column=1)
+        self.delete_button = CTkButton(button_container, width=75,
+                                       text='Delete',
+                                       fg_color=WARNING_COLOR,
+                                       hover_color=WARNING_COLOR_HIGHLIGHTED,
+                                       command=self.delete_button_handler)
+        self.delete_button.grid(row=0, column=3, sticky='e')
+
+        
+    def delete_button_handler(self):
+
+        def confirm_delete():
+            return
+        
+        ConfirmSelectionPrompt(self,
+                               prompt_text='Delete test entry?',
+                               confirm_command=confirm_delete)
+        
+    def open_button_handler(self):
+        return
+    
+    def cancel_button_handler(self):
+        self.controller.show_frame(LandingContextFrame)
+        return
+
+
+class SearchField(CTkFrame):
+    def __init__(self,
+                 parent = None,
+                 command: Callable[[str], None] = None):
+        super().__init__(parent,
+                         fg_color=BACKGROUND_COLOR)
+        
+        self.command = command
+
+        self.grid_columnconfigure((0,1), weight=1)
+        self.search_entry = CTkEntry(self, width=250,
+                                placeholder_text='search by id or name',
+                                fg_color=CONTAINER_COLOR,
+                                border_color=CONTAINER_BORDER_COLOR)
+        self.search_entry.grid(row=0, column=0, sticky='w')
+        self.search_button = CTkButton(self, width=75,
+                                  text='Search',
+                                  command=self.search_button_handler)
+        self.search_button.grid(row=0, column=1, padx=10)
+
+    def search_button_handler(self):
+        if self.command: self.command(self.search_entry.get())
+
+
+class SearchTable(CTkFrame):
+    """Table containing the relevant test entries according to search criteria"""
+    def __init__(self, parent):
+        super().__init__(parent,
+                         fg_color=CONTAINER_COLOR,
+                         border_color=CONTAINER_BORDER_COLOR,
+                         border_width=2,
+                         height=370)
+        
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+
+        column_headers = CTkFrame(self)
+        column_headers.grid(row=0, column=0, padx=2, pady=2, sticky='ew')
+        column_headers.grid_rowconfigure(0, weight=0)
+        column_headers.grid_columnconfigure(0, weight=1)
+        column_headers.grid_columnconfigure(1, weight=2)
+        column_headers.grid_columnconfigure(2, weight=2)
+        column_headers.grid_columnconfigure(3, weight=2)
+        column_headers.grid_columnconfigure(4, weight=2)
+
+        # [id] [name] [date] [status] [tags]
+
+        header_labels = [
+            # text, padx, pady, sticky
+            ('id', 3, 3, None),
+            ('name', 3, 3, None),
+            ('date', 3, 3, None),
+            ('status', 3, 3, None),
+            ('tags', 3, 3, None)
+        ]
+        column=0
+        for label in header_labels:
+            header_label = CTkLabel(column_headers,
+                                    text=label[0],
+                                    font=CTkFont(size=14, weight="bold"))
+            header_label.grid(row=0,
+                              column=column,
+                              padx=label[1],
+                              pady=label[2],
+                              sticky=label[3])
+            column += 1
+
+        self.scroll_container = CTkScrollableFrame(self,
+                                                   fg_color='transparent')
+        self.scroll_container.grid(row=1, column=0, padx=3, pady=3, sticky='nsew')
+        
+    def populate(self, test_entries: list[TestData]):
+        return
+    
+
+class TestEntry(CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+
+class SettingsContextFrame(CTkFrame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+
+        # header label
+        self.header_label = CTkLabel(self,
+                                     text="Settings",
+                                     font=CTkFont(size=20, weight="bold"))
+        self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
 
 
 class SpawnPromptError(Exception):
@@ -405,7 +613,7 @@ class TextEntryPrompt(CTkToplevel):
     
     Attributes
     ----------
-    _PROMPT_ACTIVE : bool
+    _PROMPT_ACTIVE : bool, private
         Indicates whether a prompt is currently active or not
     """
 
@@ -436,6 +644,7 @@ class TextEntryPrompt(CTkToplevel):
         cancel_command : callable, optional
             Executes when the user presses 'cancel'
         """
+
         super().__init__(parent)
 
         if TextEntryPrompt._PROMPT_ACTIVE:
@@ -453,6 +662,7 @@ class TextEntryPrompt(CTkToplevel):
         self.geometry('300x120')
         self.resizable(False,False)
         self.attributes("-topmost", True)
+        self.protocol('WM_DELETE_WINDOW', self.exit)
         self.focus_force()
         self.grid_columnconfigure((0,1), weight=1)
         self.grid_rowconfigure((0,1,3), weight=1)
@@ -532,7 +742,7 @@ class ConfirmSelectionPrompt(CTkToplevel):
     
     Attributes
     ----------
-    _PROMPT_ACTIVE : bool
+    _PROMPT_ACTIVE : bool, private
         Indicates whether a prompt is currently active or not
     """
 
@@ -567,7 +777,6 @@ class ConfirmSelectionPrompt(CTkToplevel):
         else:
             ConfirmSelectionPrompt._PROMPT_ACTIVE = True
 
-
         self.parent = parent
         self.confirm_command = confirm_command
         self.cancel_command = cancel_command
@@ -576,6 +785,7 @@ class ConfirmSelectionPrompt(CTkToplevel):
         self.geometry('300x120')
         self.resizable(False,False)
         self.attributes("-topmost", True)
+        self.protocol('WM_DELETE_WINDOW', self.exit)
         self.grid_columnconfigure((0,1), weight=1)
         self.grid_rowconfigure((0,1), weight=1)
 
