@@ -19,8 +19,7 @@ from customtkinter import (
     CTkScrollableFrame,
     CTkCheckBox,
     CTkProgressBar,
-    CTkToplevel,
-    CTkSegmentedButton
+    CTkToplevel
 )
 
 # App sizing
@@ -42,6 +41,8 @@ customtkinter.set_appearance_mode("Dark")
 customtkinter.set_default_color_theme("blue")
 
 class MainWindow(CTk):
+    """The primary window object for the application GUI."""
+
     def __init__(self):
         super().__init__()
 
@@ -111,6 +112,8 @@ class MainWindow(CTk):
         frame_instance.tkraise()
 
     def new_test_button_handler(self):
+        # load a blank test entry and show the edit context frame
+        self.context_frames[EditTestContextFrame].load_test_entry(TestData)
         self.show_frame(EditTestContextFrame)
         return
     
@@ -124,6 +127,10 @@ class MainWindow(CTk):
 
 
 class LandingContextFrame(CTkFrame):
+    """The first screen the user sees upon opening the application.
+    
+    TODO: Display a quickstart guide and useful information to the user.
+    """
     def __init__(self, parent, controller):
         super().__init__(parent)
 
@@ -135,6 +142,10 @@ class LandingContextFrame(CTkFrame):
 
 
 class ViewTestContextFrame(CTkFrame):
+    """This context panel shows the user a summary of a test entry with the
+    option to edit or delete the entry as well as an option to view the raw
+    data files in the file explorer."""
+
     def __init__(self, parent, controller):
         super().__init__(parent)
 
@@ -150,6 +161,7 @@ class EditTestContextFrame(CTkFrame):
 
         self.parent = parent
         self.controller = controller
+        self.active_test_data = None
 
         self.columnconfigure((0,1), weight=0)
         self.columnconfigure(2, weight=1)
@@ -161,64 +173,48 @@ class EditTestContextFrame(CTkFrame):
                                      font=CTkFont(size=20, weight="bold"))
         self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
 
-        # test name label and field
-        self.test_name_label = CTkLabel(self, text='Test name:',
+        # test name frame
+        name_container = CTkFrame(self, fg_color=BACKGROUND_COLOR)
+        name_container.grid(row=1, column=0, sticky='nsew')
+        name_container.grid_columnconfigure(0, weight=1)
+        name_container.grid_rowconfigure(0, weight=1)
+        self.test_name_label = CTkLabel(name_container, text='Test name:',
                                         font=CTkFont(size=14), height=14)
-        self.test_name_label.grid(row=1, column=0, sticky='nsw', padx=20)
-        self.test_name_entry = CTkEntry(self, width=250,
+        self.test_name_label.grid(row=0, column=0, sticky='nsw', padx=20)
+        self.test_name_entry = CTkEntry(name_container, width=250,
                                         border_color=CONTAINER_BORDER_COLOR,
                                         fg_color=CONTAINER_COLOR)
-        self.test_name_entry.grid(row=2, column=0, sticky='nsew', padx=20, pady=5) 
+        self.test_name_entry.grid(row=1, column=0, sticky='nsew', padx=20, pady=5) 
 
-        # test notes label and field
-        self.test_notes_label = CTkLabel(self, text='Notes:', font=CTkFont(size=14))
-        self.test_notes_label.grid(row=3, column=0, sticky='nsw', padx=20)
-        self.test_notes_box = CTkTextbox(self, height=100, width=250, border_width=2,
+        # test notes frame
+        notes_container = CTkFrame(self, fg_color=BACKGROUND_COLOR)
+        notes_container.grid(row=2, column=0, sticky='nsew')
+        notes_container.grid_columnconfigure(0, weight=1)
+        notes_container.grid_rowconfigure(0, weight=1)
+        self.test_notes_label = CTkLabel(notes_container, text='Notes:', font=CTkFont(size=14))
+        self.test_notes_label.grid(row=0, column=0, sticky='nsw', padx=20)
+        self.test_notes_box = CTkTextbox(notes_container, height=100, width=250, border_width=2,
                                          border_color=CONTAINER_BORDER_COLOR,
                                          fg_color=CONTAINER_COLOR)
-        self.test_notes_box.grid(row=4, column=0, padx=20, sticky='nsew')
+        self.test_notes_box.grid(row=1, column=0, padx=20, sticky='nsew')
 
         # audio/signal sample recording panel
-        self.sample_recording_frame = CTkFrame(self, width=250,
-                                               fg_color=CONTAINER_COLOR)
-        self.sample_recording_frame.grid(row=5, column=0, padx=20, pady=20, sticky='nsew')
-        self.sample_recording_frame.grid_columnconfigure((0,1,2), weight=1)
-        self.sample_recording_frame.rowconfigure((0,1,2), weight=0)
+        sample_recording_frame = SampleRecordingFrame(self)
+        sample_recording_frame.grid(row=3, column=0, padx=20, pady=20, sticky='nsew')
 
-        # sample recording panel buttons
-        self.sample_recording_frame_header = CTkLabel(self.sample_recording_frame,
-                                                      text='Recording Sample',
-                                                      font=CTkFont(size=14))
-        self.sample_recording_frame_header.grid(row=0, column=0, columnspan=3)
-        self.sample_cursor_time = CTkLabel(self.sample_recording_frame,
-                                           text='00:00 / 00:00')
-        self.sample_cursor_time.grid(row=1, column=0, columnspan=3)
-        self.record_button = CTkButton(self.sample_recording_frame, width=75,
-                                       text='Record',
-                                       command=None)
-        self.record_button.grid(row=2, column=0, padx=2, pady=3, sticky='nsew')
-        self.play_button = CTkButton(self.sample_recording_frame,  width=75,
-                                     text='Play',
-                                     command=None,)
-        self.play_button.grid(row=2, column=1, padx=2, pady=3, sticky='nsew')
-        self.stop_button = CTkButton(self.sample_recording_frame,  width=75,
-                                     text='Stop',
-                                     command=None,
-                                     fg_color=WARNING_COLOR,
-                                     hover_color=WARNING_COLOR_HIGHLIGHTED)
-        self.stop_button.grid(row=2, column=2, padx=2, pady=3, sticky='nsew')
-
-        # process sample button
-        self.process_button = CTkButton(self, text='Process Sample', width=250,
+        # process sample panel
+        process_panel = CTkFrame(self, fg_color=BACKGROUND_COLOR)
+        process_panel.grid(row=4, column=0, sticky='nsew')
+        process_panel.grid_columnconfigure(0, weight=1)
+        process_panel.grid_rowconfigure((0,1), weight=1)
+        self.process_button = CTkButton(process_panel, text='Process Sample', width=250,
                                         command=None,
                                         font=CTkFont(size=14),
                                         fg_color=CONFIRM_COLOR,
                                         hover_color=CONFIRM_COLOR_HIGHLIGHTED)
-        self.process_button.grid(row=6, column=0)
-
-        # process progress bar
-        self.progress_bar = CTkProgressBar(self, width=250)
-        self.progress_bar.grid(row=7, column=0, pady=10)
+        self.process_button.grid(row=0, column=0)
+        self.progress_bar = CTkProgressBar(process_panel, width=250)
+        self.progress_bar.grid(row=1, column=0, pady=10)
 
         # insert tag select frame
         self.tag_select_frame = TagContainer(self)
@@ -240,7 +236,7 @@ class EditTestContextFrame(CTkFrame):
         self.button_bar.grid_columnconfigure(2, weight=1)
         self.save_button = CTkButton(self.button_bar, width=75,
                                      text='Save',
-                                     command=None,
+                                     command=self.save_button_handler,
                                      fg_color=CONFIRM_COLOR,
                                      hover_color=CONFIRM_COLOR_HIGHLIGHTED)
         self.save_button.grid(row=0, column=0, padx=2, pady=3, sticky='w')
@@ -258,6 +254,33 @@ class EditTestContextFrame(CTkFrame):
         # insert output summary
         self.output_summary = OutputSummaryFrame(self)
         self.output_summary.grid(row=1, column=2, rowspan=7, padx=20, sticky='nsew')
+
+    def load_test_entry(self, test_data: TestData):
+        '''Load the data of a preexisting test entry or present a fresh entry
+        template for a new test.
+
+        Save a reference to the test data object to add and store data to in the 
+        future.
+        '''
+
+        # store reference to test data
+        self.active_test_data = test_data
+
+        # copy test name to field if exists
+        self.test_name_entry.delete('0', 'end')
+        if test_data.name: self.test_name_entry.insert('0', test_data.name)
+
+        # copy notes to field if exists
+        self.test_notes_box.delete('1.0', 'end-1c')
+        if test_data.notes: self.test_notes_box.insert('1.0', test_data.notes)
+
+        # update recording time stamps if a recording sample exists
+
+        # reload tags from database
+
+        # mark tags associated with the test_data object active
+
+        pass
 
     def new_tag_button_handler(self):
 
@@ -294,7 +317,13 @@ class EditTestContextFrame(CTkFrame):
             
         except SpawnPromptError:
             pass # prevents multiple prompts from spawning
-            
+
+    def save_button_handler(self):
+        # update active test data entry with data present in the edit form
+
+        # save data entry to database
+        pass
+
     def cancel_button_handler(self):
 
         def confirm_cancel():
@@ -314,12 +343,42 @@ class EditTestContextFrame(CTkFrame):
             pass # prevents multiple prompts from spawning
 
 
+class SampleRecordingFrame(CTkFrame):
+    def __init__(self, parent):
+        super().__init__(parent, width=250,
+                         fg_color=CONTAINER_COLOR)
+        
+        self.grid_columnconfigure((0,1,2), weight=1)
+        self.grid_rowconfigure((0,1,2), weight=0)
+        self.header = CTkLabel(self,
+                                                      text='Sample Recording',
+                                                      font=CTkFont(size=14))
+        self.header.grid(row=0, column=0, columnspan=3)
+        self.sample_cursor_time = CTkLabel(self,
+                                           text='00:00 / 00:00')
+        self.sample_cursor_time.grid(row=1, column=0, columnspan=3)
+        self.record_button = CTkButton(self, width=75,
+                                       text='Record',
+                                       command=None)
+        self.record_button.grid(row=2, column=0, padx=2, pady=3, sticky='nsew')
+        self.play_button = CTkButton(self,  width=75,
+                                     text='Play',
+                                     command=None,)
+        self.play_button.grid(row=2, column=1, padx=2, pady=3, sticky='nsew')
+        self.stop_button = CTkButton(self,  width=75,
+                                     text='Stop',
+                                     command=None,
+                                     fg_color=WARNING_COLOR,
+                                     hover_color=WARNING_COLOR_HIGHLIGHTED)
+        self.stop_button.grid(row=2, column=2, padx=2, pady=3, sticky='nsew')
+
+
 class OutputSummaryFrame(CTkFrame):
     """Frame which displays the results of running the processor on the
     recorded sample.
     """
 
-    def __init__(self, parent,):
+    def __init__(self, parent):
         super().__init__(parent,  width=300, border_width=2,
                          fg_color=CONTAINER_COLOR,
                          border_color=CONTAINER_BORDER_COLOR)
@@ -348,7 +407,8 @@ class TagContainer(CTkFrame):
                          fg_color=CONTAINER_COLOR)
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
 
         self.num_tags = 0
         self.enable_delete = enable_delete
@@ -376,6 +436,10 @@ class TagContainer(CTkFrame):
                           tag_name=text,
                           enable_delete=self.enable_delete)
         new_tag.grid(row=(self.num_tags - 1), column=0, sticky='ew')
+
+    def load_tags(self, tags: list):
+        for tag in tags:
+            self.add_tag(tag)
 
 
 class TagItem(CTkFrame):
@@ -482,7 +546,7 @@ class OpenTestContextFrame(CTkFrame):
         self.cancel_button = CTkButton(button_container, width=75,
                                        text='Cancel',
                                        command=self.cancel_button_handler)
-        self.cancel_button.grid(row=0, column=1)
+        self.cancel_button.grid(row=0, column=1, padx=3)
         self.delete_button = CTkButton(button_container, width=75,
                                        text='Delete',
                                        fg_color=WARNING_COLOR,
