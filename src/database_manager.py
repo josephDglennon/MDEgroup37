@@ -4,12 +4,7 @@ import datetime
 
 
 from dataclasses import dataclass, field
-
-
-_ABSOLUTE_PATH = os.path.dirname(__file__)
-DB_FOLDER_PATH = os.path.join(_ABSOLUTE_PATH, '../dmgdevicestorage/db')
-_DB_FILE_PATH = os.path.join(DB_FOLDER_PATH, 'dmg.db')
-
+import src.dmg_assessment as dmg
 
 @dataclass
 class TestData:
@@ -29,13 +24,8 @@ class TestData:
     creation_date: str
         String representation of the date and timestamp generated when this test 
         was first saved.
-    input_audio_file: str
-        Path to the file-system save location of the input_audio file recorded for
-        this test.
-    input_trigger_file: str
-        Path to the trigger data input file storage location
-    output_file: str
-        Path to the output file generated for this test.
+    data_file: str
+        Path to file in which test data is saved 
     """
 
     id: int = None
@@ -43,9 +33,7 @@ class TestData:
     notes: str = None
     tags: list[str] = field(default_factory=list)
     creation_date: str = None
-    input_audio_file: str = None
-    input_trigger_file: str = None
-    output_file: str = None
+    data_file: str = None
 
 
 def _connect() -> sqlite3.Connection:
@@ -53,54 +41,38 @@ def _connect() -> sqlite3.Connection:
 
     conn = None
     try:
-        conn = sqlite3.connect(_DB_FILE_PATH,
+        db_file = os.path.join(dmg._database_file_path, dmg._database_file_name)
+        con = sqlite3.connect(db_file,
                                detect_types=sqlite3.PARSE_DECLTYPES |
                                             sqlite3.PARSE_COLNAMES)
+        
     except Exception as e:
         print(e)
 
-    return conn
+    return con
 
 
-def _initialize_database_tables(conn: sqlite3.Connection):
+def _initialize_database_tables(con: sqlite3.Connection):
     """Set up the database tables.
     
     Parameters
     ----------
-    conn: sqlite3.Connection, required
+    con: sqlite3.Connection, required
         connection to database
     """
 
-    conn.execute("PRAGMA foreign_keys = ON")
+    con.execute("PRAGMA foreign_keys = ON")
 
     query = ('''
                 CREATE TABLE IF NOT EXISTS test (
                     id INTEGER PRIMARY KEY NOT NULL,
                     name TEXT NOT NULL, 
                     created TIMESTAMP NOT NULL,
-                    notes TEXT
+                    notes TEXT,
+                    data_file_path TEXT
                 );
             ''')
-    conn.execute(query)
-
-    query = ('''
-                CREATE TABLE IF NOT EXISTS test_file (
-                    test_id INTEGER,
-                    file_type_id INTEGER,
-                    path TEXT NOT NULL,
-                    FOREIGN KEY(test_id) REFERENCES test(id),
-                    FOREIGN KEY(file_type_id) REFERENCES file_type(id)
-                );
-            ''')
-    conn.execute(query)
-
-    query = ('''
-                CREATE TABLE IF NOT EXISTS file_type (
-                    id INTEGER PRIMARY KEY,
-                    type TEXT
-                );
-            ''')
-    conn.execute(query)
+    con.execute(query)
 
     query = ('''
                 CREATE TABLE IF NOT EXISTS test_tag (
@@ -110,7 +82,7 @@ def _initialize_database_tables(conn: sqlite3.Connection):
                     FOREIGN KEY(tag_id) REFERENCES tag(id)
                 );
             ''')
-    conn.execute(query)
+    con.execute(query)
 
     query = ('''
                 CREATE TABLE IF NOT EXISTS tag (
@@ -118,32 +90,32 @@ def _initialize_database_tables(conn: sqlite3.Connection):
                     value TEXT
                 );  
             ''')
-    conn.execute(query)
+    con.execute(query)
 
-    # add default file types to table
-    for type in ('input_audio', 'input_trigger', 'output'):
-        _insert_file_type(conn, type)
-
-    conn.commit()
+    con.commit()
 
 
-def initialize_db():
+def configure(files_location=dmg._files_location,
+              database_file_path=dmg._database_file_path,
+              database_file_name=dmg._database_file_name):
     '''Set up the database in the location indicated by DB_FOLDER_PATH.
     
-    User must call this function in order to create a database at the desired
-    location.
+    User may configure the database at a specified location other than
+    the default location.
     '''
 
-    global _DB_FILE_PATH
-    _DB_FILE_PATH = os.path.join(DB_FOLDER_PATH, 'dmg.db')
+    dmg._files_location = files_location
+    dmg._database_file_path = database_file_path
+    dmg._database_file_name = database_file_name
 
-    if not os.path.isdir(DB_FOLDER_PATH):
-        os.makedirs (DB_FOLDER_PATH)
+    if not os.path.isdir(database_file_path):
+        os.makedirs(database_file_path)
 
-    if not os.path.isfile(_DB_FILE_PATH):
-        conn = _connect()
-        _initialize_database_tables(conn)
-        conn.close()
+    db_file = os.path.join(database_file_path, database_file_name)
+    if not os.path.isfile(db_file):
+        con = _connect()
+        _initialize_database_tables(con)
+        con.close()
 
 
 def save_test_data(test_data: TestData):
@@ -167,6 +139,14 @@ def save_test_data(test_data: TestData):
         An object containing data to be saved to database (also used to update
         existing database entries) 
     '''
+
+    # check if test exists
+
+        # insert if no
+
+
+        # update if yes
+    
     return
 
 
@@ -181,7 +161,7 @@ class DatabaseError(Exception):
         super().__init__(*args)
 
 
-def retrieve_test_data_by_name(name: str) -> TestData:
+def load_test_data_by_name(name: str) -> TestData:
     '''Return a single TestData object with a name matching the value provided.
     
     Return 'None' if no entry found.
@@ -199,12 +179,12 @@ def retrieve_test_data_by_name(name: str) -> TestData:
     '''
 
     test_id = _get_test_id_by_name(name)
-    data_entry = retrieve_test_data_by_id(test_id)
+    data_entry = load_test_data_by_id(test_id)
 
     return data_entry
  
 
-def retrieve_test_data_by_id(id: str) -> TestData:
+def load_test_data_by_id(id: str) -> TestData:
     '''Return a single TestData object with an id matching the value provided.
     
     Collects all data which references the provided id in all tables in the 
@@ -228,25 +208,17 @@ def retrieve_test_data_by_id(id: str) -> TestData:
     try:
         # get row from test table with matching id 
             # id, name, created, notes
-        test_row = _get_test_row_by_id(id)
-
-        # get all files linked to the provided id
-            # file-type, path
-        test_files = _get_test_files_by_id(id)
+        test_row = _read_test_by_id(id)
 
         # get all tags assocated with the provided id
-        tags = _get_tags_by_id(id)
+        tags = _read_tags_by_id(id)
 
         data_entry = TestData
         data_entry.id = int(test_row[0])
         data_entry.name = test_row[1]
         data_entry.creation_date = test_row[2]
         data_entry.notes = test_row[3]
-
-        for file in test_files:
-            if file[0] == 'output': data_entry.output_file = file[1]
-            elif file[0] == 'input_audio': data_entry.input_audio_file = file[1]
-            elif file[0] == 'input_trigger': data_entry.input_trigger_file = file[1]
+        data_entry.data_file = test_row[4]
 
         data_entry.tags = tags
 
@@ -277,117 +249,63 @@ def delete_test_by_id(id: str):
     return
 
 
-def _insert_file_type(conn: sqlite3.Connection, type: str):
-    """Inserts a user specified type into the file_type table.
-    
-    If the type already exists in the table, raises a DatabaseError.
-    """
-    cur = conn.cursor()
-
-    sql = """
-             SELECT * FROM file_type WHERE (type=?)
-          """
-    entry = cur.execute(sql, (type,)).fetchone()
-
-    if entry != None: raise DatabaseError('File type already exists in table.')
-
-    sql = """
-             INSERT INTO file_type(type)
-             VALUES(?)
-          """
-    cur.execute(sql, (type,))
-    conn.commit()
-
-
-def _get_file_types(conn: sqlite3.Connection):
-    '''Return a list of all file types present in the database.'''
-
-    conn.row_factory = lambda cursor, row: row[0]
-    cur = conn.cursor()
-    sql = """
-             SELECT type FROM file_type
-          """
-    types = cur.execute(sql).fetchall()
-    
-    return types
-
-
-def _insert_test_row(conn, name, notes):
-    '''Insert a row to the test table and generate a time stamp.'''
-    
-    cur = conn.cursor()
-
-    # ensure a name was provided
-    if name == None: raise DatabaseError('Name must be provided.')
-
-    # check if a test exists with the provided name
-    sql = """
-             SELECT * FROM test WHERE (name=?)
-          """
-    existing_rows = cur.execute(sql, (name,)).fetchone()
-    if existing_rows != None: raise DatabaseError('A test exists already with this name.')
-
-    # generate time stamp
-    timestamp = datetime.datetime.now()
-
-    # insert row
-    sql = """
-             INSERT INTO test(name, created, notes)
-             VALUES(?,?,?) 
-          """
-    cur.execute(sql, (name, timestamp, notes))
-
-
-def _get_test_row_by_id(conn, id: str):
-    '''Return the row in the test table matching the id provided.
-    
-    Return None if no rows are found.
-
-    If multiple rows matching the id are found, raise DatabaseError.
-    '''
-
-    cur = conn.cursor()
-    sql = """
-             SELECT * FROM test WHERE (id=?)
-          """
-    rows = cur.execute(sql, id).fetchall()
-
-    if len(rows) > 1: raise DatabaseError('Multiple test rows found matching the provided id')
-    if len(rows) == 0: return None
-
-    row = rows[0]
-
-    return row
-
-
-def _insert_test_file(conn: sqlite3.Connection, test_id, file_type, file_path):
-    '''Add a row to the test_file table with a reference to the relevant test,
-    the filetype id, and the path to that file on disc.
-    
-    Ensures that the filetype exists in the table and that no more than one 
-    file of the same type is linked to a distinct test.
-    '''
-    cur = conn.cursor()
-
-    
-
-
-
-def _get_test_files_by_id(id: str):
+# [CRUD]
+                
+def _create_test(con: sqlite3.Connection,
+                 name: str,
+                 creation_date: datetime.datetime,
+                 notes: str,
+                 data_file_path: str):
     return
 
 
-def _get_tags_by_id(id: str):
+def _create_tag(con: sqlite3.Connection, value: str):
+    
+    # check if tag exists
+
+    # insert new tag if so
+
     return
 
 
-def _get_test_id_by_name(name: str):
+def _create_tag_link(con: sqlite3.Connection,
+                     test_id: int,
+                     tag_id: int):
+    
+    return
+
+
+def _read_test_by_id(con: sqlite3.Connection, id: int):
+    return
+
+
+def _read_tags_by_id(con: sqlite3.Connection, id: int):
+    return
+
+
+def _read_tags(con: sqlite3.Connection):
+    return
+
+
+def read_tag_by_id(con: sqlite3.Connection, id: int):
+    return
+
+
+def _read_test_by_name(con: sqlite3.Connection, name: str):
+    return
+
+
+def _read_test_by_id(con: sqlite3.Connection, id: int):
+    return
+
+
+def _update_test_by_id(con: sqlite3.Connection, id: int):
     return
 
 
 def main():
     return
 
-initialize_db()
+configure()
 if __name__ == '__main__':
     main()
