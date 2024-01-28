@@ -6,7 +6,7 @@ import database_manager as db
 import customtkinter
 import logging
 
-from database_manager import TestData
+from database_manager import TestEntry
 from typing import Callable, Tuple
 from customtkinter import (
     CTk,
@@ -39,6 +39,8 @@ ITEM_COLOR = 'gray20'
 
 customtkinter.set_appearance_mode("Dark")
 customtkinter.set_default_color_theme("blue")
+
+db_manager = db.DatabaseManager()
 
 class MainWindow(CTk):
     """The primary window object for the application GUI."""
@@ -93,7 +95,6 @@ class MainWindow(CTk):
         # context frames
         self.context_frames = {}
         for frame_class in (LandingContextFrame,
-                            ViewTestContextFrame,
                             EditTestContextFrame,
                             OpenTestContextFrame,
                             SettingsContextFrame):
@@ -113,9 +114,25 @@ class MainWindow(CTk):
 
     def new_test_button_handler(self):
         # load a blank test entry and show the edit context frame
-        self.context_frames[EditTestContextFrame].load_test_entry(TestData)
-        self.show_frame(EditTestContextFrame)
-        return
+
+        def submit(text: str):
+            nonlocal self
+            new_test = db_manager.create_new_test()
+            self.context_frames[EditTestContextFrame].load_test_entry(new_test)
+            self.show_frame(EditTestContextFrame)
+        
+        def cancel(text: str):
+            return
+        
+        try:
+            TextEntryPrompt(self,
+                            max_characters=12,
+                            prompt_text='Enter a name for test:',
+                            confirm_command=submit,
+                            cancel_command=cancel)
+            
+        except SpawnPromptError:
+            pass # prevent multiple prompts from spawning
     
     def open_test_button_handler(self):
         self.show_frame(OpenTestContextFrame)
@@ -141,18 +158,6 @@ class LandingContextFrame(CTkFrame):
         self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
 
 
-class ViewTestContextFrame(CTkFrame):
-    """This context panel shows the user a summary of a test entry with the
-    option to edit or delete the entry as well as an option to view the raw
-    data files in the file explorer."""
-
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-
-        self.parent = parent
-        self.controller = controller
-
-
 class EditTestContextFrame(CTkFrame):
     """This context panel allows the user to edit, save, and/or delete a test entry."""
 
@@ -169,26 +174,13 @@ class EditTestContextFrame(CTkFrame):
 
         # header label
         self.header_label = CTkLabel(self,
-                                     text="Edit Test Data",
+                                     text="Edit Untitled Test",
                                      font=CTkFont(size=20, weight="bold"))
         self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
 
-        # test name frame
-        name_container = CTkFrame(self, fg_color=BACKGROUND_COLOR)
-        name_container.grid(row=1, column=0, sticky='nsew')
-        name_container.grid_columnconfigure(0, weight=1)
-        name_container.grid_rowconfigure(0, weight=1)
-        self.test_name_label = CTkLabel(name_container, text='Test name:',
-                                        font=CTkFont(size=14), height=14)
-        self.test_name_label.grid(row=0, column=0, sticky='nsw', padx=20)
-        self.test_name_entry = CTkEntry(name_container, width=250,
-                                        border_color=CONTAINER_BORDER_COLOR,
-                                        fg_color=CONTAINER_COLOR)
-        self.test_name_entry.grid(row=1, column=0, sticky='nsew', padx=20, pady=5) 
-
         # test notes frame
         notes_container = CTkFrame(self, fg_color=BACKGROUND_COLOR)
-        notes_container.grid(row=2, column=0, sticky='nsew')
+        notes_container.grid(row=1, column=0, sticky='nsew')
         notes_container.grid_columnconfigure(0, weight=1)
         notes_container.grid_rowconfigure(0, weight=1)
         self.test_notes_label = CTkLabel(notes_container, text='Notes:', font=CTkFont(size=14))
@@ -200,11 +192,11 @@ class EditTestContextFrame(CTkFrame):
 
         # audio/signal sample recording panel
         sample_recording_frame = SampleRecordingFrame(self)
-        sample_recording_frame.grid(row=3, column=0, padx=20, pady=20, sticky='nsew')
+        sample_recording_frame.grid(row=2, column=0, padx=20, pady=20, sticky='nsew')
 
         # process sample panel
         process_panel = CTkFrame(self, fg_color=BACKGROUND_COLOR)
-        process_panel.grid(row=4, column=0, sticky='nsew')
+        process_panel.grid(row=3, column=0, sticky='nsew')
         process_panel.grid_columnconfigure(0, weight=1)
         process_panel.grid_rowconfigure((0,1), weight=1)
         self.process_button = CTkButton(process_panel, text='Process Sample', width=250,
@@ -255,7 +247,7 @@ class EditTestContextFrame(CTkFrame):
         self.output_summary = OutputSummaryFrame(self)
         self.output_summary.grid(row=1, column=2, rowspan=7, padx=20, sticky='nsew')
 
-    def load_test_entry(self, test_data: TestData):
+    def load_test_entry(self, test_data: TestEntry):
         '''Load the data of a preexisting test entry or present a fresh entry
         template for a new test.
 
@@ -263,12 +255,8 @@ class EditTestContextFrame(CTkFrame):
         future.
         '''
 
-        # store reference to test data
-        self.active_test_data = test_data
-
         # copy test name to field if exists
-        self.test_name_entry.delete('0', 'end')
-        if test_data.name: self.test_name_entry.insert('0', test_data.name)
+        self.header_label.configure(text=('Edit ' + test_data.name))
 
         # copy notes to field if exists
         self.test_notes_box.delete('1.0', 'end-1c')
@@ -644,7 +632,7 @@ class SearchTable(CTkFrame):
                                                    fg_color='transparent')
         self.scroll_container.grid(row=1, column=0, padx=3, pady=3, sticky='nsew')
         
-    def populate(self, test_entries: list[TestData]):
+    def populate(self, test_entries: list[TestEntry]):
         return
     
 

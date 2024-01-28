@@ -3,7 +3,7 @@ import database_manager as db
 
 from hardware_input import HardwareInput
 from signal_processor import SignalProcessor
-from database_manager import TestData
+from database_manager import TestEntry
 
 
 class DeviceController():
