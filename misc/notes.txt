@@ -3,3 +3,7 @@
 
 - Would it be easiest and possibly best to save audio directly in database and recall via that?
     - Or should we stage everything in some kind of data class before loading it into the database?
+
+- Stats HW Mon Feb 12:
+    - textbook pg 38 #5, 13
+    - exercises #13, 14, 20

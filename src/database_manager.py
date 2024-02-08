@@ -148,7 +148,7 @@ class DatabaseManager:
 
         else:
             # update if yes
-            _update_test(con,
+            _update_test_by_name(con,
                          name=test_entry.name,
                          creation_date=test_entry.creation_date,
                          notes=test_entry.notes,
@@ -380,6 +380,8 @@ def _create_tag(con:sqlite3.Connection, value: str):
           """
     cur.execute(sql, (value,))
 
+    return cur.lastrowid
+
 
 def _create_tag_link(con: sqlite3.Connection, test_id, tag_id):
     
@@ -412,6 +414,8 @@ def _read_linked_tag_ids_by_test_id(con: sqlite3.Connection, id: int):
           """
     existing_tags = cur.execute(sql, (id,)).fetchall()
     con.row_factory = None
+
+    if existing_tags == []: return None
 
     return existing_tags
 
@@ -451,6 +455,8 @@ def _read_all_tag_values(con: sqlite3.Connection):
     existing_tags = cur.execute(sql).fetchall()
     con.row_factory = None
 
+    if existing_tags == []: return None
+
     return existing_tags
 
 
@@ -473,16 +479,27 @@ def _read_test_by_id(con: sqlite3.Connection, id: int):
              WHERE id=?
           """
     test = cur.execute(sql, (id,)).fetchone()
+    if test == None: return None
     return test
 
 
-def _update_test(con: sqlite3.Connection,
-                 name: str,
-                 creation_date: datetime.datetime,
-                 notes: str,
-                 data_file_path: str):
-    '''Update the existing data for the test with the specified name.'''
-    return
+def _update_test_by_name(con: sqlite3.Connection,
+                         name: str,
+                         notes: str):
+    '''Update the existing data for the test with the specified name.
+    
+    The name, creation_date, and file_path are set upon creation and are
+    not editable.
+    '''
+    
+    cur = con.cursor()
+    sql = """
+             UPDATE test
+             SET notes=?
+             WHERE name=?
+          """
+    
+    cur.execute(sql, (notes, name))
 
 
 def _update_tag_links(con: sqlite3.Connection, test_id: int, tag_values: list[str]):
@@ -500,7 +517,16 @@ def _update_tag_links(con: sqlite3.Connection, test_id: int, tag_values: list[st
         # if tag exists: 
         if tag_id:
             # this function handles duplicate tag links
-            _create_tag_link(con, test_id, tag_id) 
+            try:
+                _create_tag_link(con, test_id, tag_id)
+            except DatabaseError:
+                pass # continue if link already exists 
+
+        else:
+            # if tag does not already exist, create it and add a link from it to test
+            tag_id = _create_tag(con, value)
+            _create_tag_link(con, test_id, tag_id)
+
 
     # delete tag links from database which are not present in the list provided
     existing_tags = _read_linked_tag_ids_by_test_id(con, test_id)
@@ -525,20 +551,42 @@ def _delete_tag_link(con: sqlite3.Connection, test_id: int, tag_id: int):
 
 
 def _delete_test_by_id(con: sqlite3.Connection, test_id: int):
-    return
+    
+    cur = con.cursor()
+    sql = """
+             DELETE FROM test
+             WHERE id=?
+          """
+    cur.execute(sql, (test_id,))
 
 
 def _delete_tag_links_by_test_id(con: sqlite3.Connection, test_id: int):
-    return
+    
+    cur = con.cursor()
+    sql = """
+             DELETE FROM test_tag
+             WHERE test_id=?
+          """
+    cur.execute(sql, (test_id,))
 
 
 def _delete_tag_links_by_tag_id(con: sqlite3.Connection, tag_id: int):
-    return
+    
+    cur = con.cursor()
+    sql = """
+             DELETE FROM test_tag
+             WHERE tag_id=?
+          """
+    cur.execute(sql, (tag_id,))
 
 
 def _delete_tag_by_id(con: sqlite3.Connection, tag_id: int):
     cur = con.cursor()
-    cur.execute("DELETE FROM tag WHERE id=?", (tag_id,))
+    sql = """
+             DELETE FROM tag
+             WHERE id=?
+          """
+    cur.execute(sql, (tag_id,))
 
 
 def main():
