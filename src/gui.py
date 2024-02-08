@@ -1,6 +1,6 @@
 
 import os
-import sounddevice
+#import sounddevice
 import device_controller
 import database_manager as db
 import customtkinter
@@ -115,26 +115,30 @@ class MainWindow(CTk):
     def new_test_button_handler(self):
         # load a blank test entry and show the edit context frame
 
-        def submit(text: str):
+        def submit(test_name: str):
             nonlocal self
-            new_test = db_manager.create_new_test()
+            new_test = db_manager.create_new_test(test_name)
             self.context_frames[EditTestContextFrame].load_test_entry(new_test)
             self.show_frame(EditTestContextFrame)
         
         def cancel(text: str):
             return
         
-        try:
-            TextEntryPrompt(self,
-                            max_characters=12,
-                            prompt_text='Enter a name for test:',
-                            confirm_command=submit,
-                            cancel_command=cancel)
-            
-        except SpawnPromptError:
-            pass # prevent multiple prompts from spawning
+        if db_manager.get_active_test() != None:
+            self.show_frame(EditTestContextFrame)
+        else:
+            try:
+                TextEntryPrompt(self,
+                                max_characters=12,
+                                prompt_text='Enter a name for test:',
+                                confirm_command=submit,
+                                cancel_command=cancel)
+                
+            except SpawnPromptError:
+                pass # prevent multiple prompts from spawning
     
     def open_test_button_handler(self):
+        self.context_frames[OpenTestContextFrame].update()
         self.show_frame(OpenTestContextFrame)
         return
 
@@ -256,7 +260,7 @@ class EditTestContextFrame(CTkFrame):
         '''
 
         # copy test name to field if exists
-        self.header_label.configure(text=('Edit ' + test_data.name))
+        self.header_label.configure(text=('Editing: ' + test_data.name))
 
         # copy notes to field if exists
         self.test_notes_box.delete('1.0', 'end-1c')
@@ -274,7 +278,8 @@ class EditTestContextFrame(CTkFrame):
 
         def submit_text(text: str):
             nonlocal self
-            self.tag_select_frame.add_tag(text)
+            
+            self.tag_select_frame.add_tag_item(db_manager.create_new_tag(text))
         
         def cancel_text(text: str):
             return
@@ -292,6 +297,7 @@ class EditTestContextFrame(CTkFrame):
     def delete_button_handler(self):
 
         def confirm_delete():
+            db_manager.delete_active_test_entry()
             self.controller.show_frame(LandingContextFrame)
         
         def cancel_delete():
@@ -398,6 +404,7 @@ class TagContainer(CTkFrame):
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
 
+        self.tag_items = []
         self.num_tags = 0
         self.enable_delete = enable_delete
 
@@ -413,21 +420,34 @@ class TagContainer(CTkFrame):
         self.tag_scroll_frame.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
         self.tag_scroll_frame.grid_columnconfigure(1, weight=1)
 
-        # example tags
-        self.add_tag('Tag1')
-        self.add_tag('Tag2')
-        self.add_tag('Tag3')
+        # load existing tags
+        existing_tags = db_manager.list_existing_tags()
+        self.load_tags(existing_tags)
 
-    def add_tag(self, text: str):
+
+    def add_tag_item(self, text: str):
+
+        if text == None: return
+
         self.num_tags += 1
         new_tag = TagItem(self.tag_scroll_frame,
-                          tag_name=text,
+                          tag_value=text,
                           enable_delete=self.enable_delete)
         new_tag.grid(row=(self.num_tags - 1), column=0, sticky='ew')
+        self.tag_items.append(new_tag)
 
     def load_tags(self, tags: list):
+
+        self.clear()
         for tag in tags:
-            self.add_tag(tag)
+            self.add_tag_item(tag)
+
+    def clear(self):
+        for tag_item in self.tag_items:
+            tag_item.destroy()
+        
+        self.num_tags = 0
+        self.tag_items = []
 
 
 class TagItem(CTkFrame):
@@ -435,8 +455,7 @@ class TagItem(CTkFrame):
 
     def __init__(self,
                  parent=None,
-                 tag_name: str='tag',
-                 tag_id: int=0,
+                 tag_value: str='tag',
                  enable_delete: bool=True):
         """Constructs a GUI representation of a tag
         
@@ -448,6 +467,8 @@ class TagItem(CTkFrame):
         """
         
         super().__init__(parent, fg_color=ITEM_COLOR,)
+
+        self.tag_value = tag_value
         
         self.grid(padx=3, pady=3, sticky='nsew')
         self.grid_columnconfigure((0,1,2), weight=1)
@@ -458,8 +479,8 @@ class TagItem(CTkFrame):
                                             text='')
         self.check_box.grid(row=0, column=0, sticky='w', padx=5, pady=5)
 
-        self.tag_name = CTkLabel(self, text=tag_name, width=120)
-        self.tag_name.grid(row=0, column=1)
+        self.tag_value_text = CTkLabel(self, text=tag_value, width=120)
+        self.tag_value_text.grid(row=0, column=1)
 
         if enable_delete:
             self.delete_button = CTkButton(self,
@@ -476,6 +497,7 @@ class TagItem(CTkFrame):
 
         def action_confirmed():
             nonlocal self
+            db_manager.delete_tag_by_value(self.tag_value)
             self.destroy()
 
         try:
@@ -558,6 +580,9 @@ class OpenTestContextFrame(CTkFrame):
     def cancel_button_handler(self):
         self.controller.show_frame(LandingContextFrame)
         return
+    
+    def update(self):
+        self.tag_container.load_tags(db_manager.list_existing_tags())
 
 
 class SearchField(CTkFrame):

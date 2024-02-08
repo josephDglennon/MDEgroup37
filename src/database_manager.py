@@ -4,7 +4,6 @@ import datetime
 
 from dataclasses import dataclass, field
 import dmg_assessment as dmg
-from hardware_input import DmgData
 from numpy import ndarray
 
 
@@ -46,18 +45,23 @@ class TestEntry:
     notes: str = None
     tags: list = None
     creation_date: str = None
-    data_file: str = None
-    input_data_sample: DmgData = None
+    data_file_path: str = None
+    data: DmgData = None
 
 
 class DatabaseManager:
     def __init__(self):
-        self.active_test = None
+        self._active_test = None
 
-    def create_new_test(self) -> TestEntry:
-        self.active_test = TestEntry()
+    def get_active_test(self):
+        return self._active_test
 
-        return self.active_test
+    def create_new_test(self, name: str) -> TestEntry:
+        self._active_test = TestEntry()
+        self._active_test.name = name
+        self._active_test.creation_date = datetime.datetime.now()
+
+        return self._active_test
 
     def load_existing_test_by_name(self, name: str) -> TestEntry:
         '''Return a single TestEntry object with a name matching the value provided.
@@ -76,32 +80,43 @@ class DatabaseManager:
             found or None if entry matching provided name does not exist.
         '''
 
-        test_id = _get_test_id_by_name(name)
+        test_id = _read_test_id_by_name(name)
         test_entry = self.load_test_by_id(test_id)
 
-        return test_entry
+        self._active_test = test_entry
+
+        return self._active_test
 
     def load_test_by_id(self, id: int) -> TestEntry:
-        pass
+        
+        con = _connect()
+        test_row = _read_test_by_id(con, id)
+
+        test_entry = TestEntry()
+        test_entry.id = test_row[0]
+        test_entry.name = test_row[1]
+        test_entry.creation_date = test_row[2]
+        test_entry.notes = test_row[3]
+        test_entry.data_file_path = test_row[4]
+        
+        test_entry.data = _read_data_from_file(test_entry.data_file_path)
+        test_entry.tags = _read_linked_tag_ids_by_test_id(con, test_entry.id)
+
+        con.close()
+
+        self._active_test = test_entry
+        return self._active_test
 
     def save_active_test_data(test_entry: TestEntry):
         '''Handles the insertion of new test entries as well as updating of existing
         entries.
         
-        If the object has an id, update the entry at that id with the data contained
-        in the TestData object.
-        
-        If the object contains no id, create a new entry in the data base and insert 
-        all of the relevant data.
-        
-        Does not allow empty name field and the name entered cannot be the same as the
-        name of any existing entries. If the id exists but the name does not match, 
-        the name is overwritten for that entry. Other fields are overwritten in the same
-        manner if provided fields differ from those which are saved in the database.
+        Does not allow multiple tests with the same name to be created. Tests with
+        the same name will be overwritten with the latest data.
         
         Parameters
         ----------
-        test_data: TestData, required
+        test_entry: TestEntry, required
             An object containing data to be saved to database (also used to update
             existing database entries) 
         '''
@@ -119,14 +134,16 @@ class DatabaseManager:
 
         if existing_test == None:
             # insert if no
-            _create_test(con,
-                         name=test_entry.name,
-                         creation_date=test_entry.creation_date,
-                         notes=test_entry.notes,
-                         data_file_path=test_entry.data_file)
-            _save_test_data_to_file(path=test_entry.data_file,
-                                    input=test_entry.input_data_sample,
-                                    output=test_entry.output_data)
+            test_id = _create_test(con,
+                                   name=test_entry.name,
+                                   creation_date=test_entry.creation_date,
+                                   notes=test_entry.notes,
+                                   data_file_path=test_entry.data_file_path)
+            test_entry.id = test_id
+# todo: generate filepath
+            path = None
+            _save_test_data_to_file(path=test_entry.data_file_path,
+                                    data=test_entry.data,)
             _update_tag_links(test_entry.id, test_entry.tags)
 
         else:
@@ -135,11 +152,80 @@ class DatabaseManager:
                          name=test_entry.name,
                          creation_date=test_entry.creation_date,
                          notes=test_entry.notes,
-                         data_file_path=test_entry.data_file)
-            _save_test_data_to_file(path=test_entry.data_file,
-                                    input=test_entry.input_data_sample,
-                                    output=test_entry.output_data)
+                         data_file_path=test_entry.data_file_path)
+            _save_test_data_to_file(path=test_entry.data_file_path,
+                                    data=test_entry.data)
             _update_tag_links(test_entry.id, test_entry.tags)
+
+        con.commit()
+        con.close()
+
+    def delete_active_test_entry(self):
+        self._active_test = None
+
+        # delete test from test table
+
+        # delete tag links referencing this test
+
+        # delete relevant test files
+
+    def create_new_tag(self, value: str):
+        '''Create a new tag with the specified value.
+        
+        Attempts to add a new tag to the database.
+        If tag with specified value already exists, return None.
+        Otherwise, add tag and return value.
+        '''
+
+        con = _connect()
+
+        try:
+            _create_tag(con, value)
+            con.commit()
+            con.close()
+            return value
+        
+        except DatabaseError:
+            con.close()
+            return None
+
+        
+
+    
+    def list_test_ids(self) -> list[TestEntry]:
+        '''Return a list of all entries currently stored in database.
+        
+        Return
+        ------
+        data_entries: list[TestData]
+            A list containing all unique entries stored in the database.    
+        '''
+        return
+
+
+    def list_test_ids_by_tags(self, tags: list[str]) -> list[int]:
+        '''Return a list of test ids for all entries in the database which are linked
+        to any of the tags provided.'''
+        return
+
+
+    def list_existing_tags(self) -> list[str]:
+        '''Return a list of all tag values currently in the database'''
+        con = _connect()
+
+        tag_list = _read_all_tag_values(con)
+
+        con.commit()
+        con.close()
+
+        return tag_list
+
+
+    def delete_tag_by_value(self, value: str):
+        con = _connect()
+
+        tag_id = _read_tag_id_by_value(con, value)
+        _delete_tag_by_id(con, tag_id)
 
         con.commit()
         con.close()
@@ -241,11 +327,44 @@ class DatabaseError(Exception):
         super().__init__(*args)
 
 
-def create_new_tag(value: str):
+def _save_test_data_to_file(path: str, data: DmgData):
+    pass
 
-    con = _connect()
+
+def _read_data_from_file(path: str) -> DmgData:
+    return
+
+
+# [CRUD]
+             
+def _create_test(con: sqlite3.Connection,
+                 name: str,
+                 creation_date: datetime.datetime,
+                 notes: str,
+                 data_file_path: str) -> int:
+    '''Simply inserts data to test table and returns the last row id.
+    
+    This function is not responsibile for determining whether or not there already
+    exists a test with the specified name.
+    '''
+    
     cur = con.cursor()
 
+    sql = """
+             INSERT
+             INTO test (name, created, notes, data_file_path)
+             VALUES (?,?,?,?)
+          """
+    
+    cur.execute(sql, (name, creation_date, notes, data_file_path))
+    
+    return cur.lastrowid
+
+
+def _create_tag(con:sqlite3.Connection, value: str):
+    
+    cur = con.cursor()
+    
     # check if tag exists
     sql = "SELECT * FROM tag WHERE value=?"
     existing_tag = cur.execute(sql, (value,)).fetchone()
@@ -261,150 +380,100 @@ def create_new_tag(value: str):
           """
     cur.execute(sql, (value,))
 
-    con.commit()
-    con.close()
 
-
-def load_test_data_by_name(name: str) -> TestEntry:
-    '''Return a single TestData object with a name matching the value provided.
-    
-    Return 'None' if no entry found.
-
-    Parameters
-    ----------
-    name: str, required
-        The name field to match with existing database entries
-
-    Return
-    ------
-    data_entry: TestData
-        An object containing all relevant data for a particular test entry if 
-        found or None if entry matching provided name does not exist.
-    '''
-
-    test_id = _get_test_id_by_name(name)
-    data_entry = load_test_data_by_id(test_id)
-
-    return data_entry
- 
-
-def load_test_data_by_id(id: int) -> TestEntry:
-    '''Return a single TestData object with an id matching the value provided.
-    
-    Collects all data which references the provided id in all tables in the 
-    database and packages it into a TestData instance.
-
-    Return 'None' if no entry found.
-
-    Parameters
-    ----------
-    id: str, required
-        The id field to match with existing database entries
-
-    Return
-    ------
-    data_entry: TestData
-        An object containing all relevant data for a particular test entry if 
-        found or None if entry matching provided id does not exist.
-    '''
-
-    # check that entry exists
-    try:
-        # get row from test table with matching id 
-            # id, name, created, notes
-        test_row = _read_test_by_id(id)
-
-        # get all tags assocated with the provided id
-        tags = _read_tags_by_test_id(id)
-
-        data_entry = TestEntry
-        data_entry.id = int(test_row[0])
-        data_entry.name = test_row[1]
-        data_entry.creation_date = test_row[2]
-        data_entry.notes = test_row[3]
-        data_entry.data_file = test_row[4]
-
-        data_entry.tags = tags
-
-        return data_entry
-
-    except DatabaseError:
-        return None
-
-
-def list_test_ids() -> list[TestEntry]:
-    '''Return a list of all entries currently stored in database.
-    
-    Return
-    ------
-    data_entries: list[TestData]
-        A list containing all unique entries stored in the database.    
-    '''
-    return
-
-
-def list_test_ids_by_tags(tags: list[str]) -> list[int]:
-    '''Return a list of test ids for all entries in the database which are linked
-    to any of the tags provided.'''
-    return
-
-
-def list_tags() -> list[str]:
-    '''Return a list of all tags currently in the database'''
-    return
-
-
-def delete_tag_by_name(name: str):
-    return
-
-
-def delete_test_by_id(id: int):
-    return
-
-
-# [CRUD]
-                
-def _create_test(con: sqlite3.Connection,
-                 name: str,
-                 creation_date: datetime.datetime,
-                 notes: str,
-                 data_file_path: str) -> int:
+def _create_tag_link(con: sqlite3.Connection, test_id, tag_id):
     
     cur = con.cursor()
-
+    # check if tag link exists already
     sql = """
-             INSERT
-             INTO test (name, created, notes, data_file_path)
-             VALUES (?,?,?,?)
+             SELECT * FROM test_tag
+             WHERE test_id=?
+             AND tag_id=?
           """
-    
-    cur.execute(sql, (name, creation_date, notes, data_file_path))
-    
-    return cur.lastrowid
+    existing_links = cur.execute(sql, (test_id, tag_id)).fetchone()
+    if existing_links != None: raise DatabaseError('A link between the specified test and tag already exists.')
+
+    # add tag link
+    sql = """
+             INSERT INTO test_tag(test_id, tag_id)
+             VALUES(?,?)
+          """
+    cur.execute(sql, (test_id, tag_id))
 
 
-def _create_tag(con:sqlite3.Connection, name: str):
-    return
+def _read_linked_tag_ids_by_test_id(con: sqlite3.Connection, id: int):
+    
+    con.row_factory = lambda cursor, row: row[0]
+    cur = con.cursor()
+    sql = """
+             SELECT tag_id
+             FROM test_tag
+             WHERE test_id=?
+          """
+    existing_tags = cur.execute(sql, (id,)).fetchall()
+    con.row_factory = None
+
+    return existing_tags
+
+
+def _read_tag_id_by_value(con: sqlite3.Connection, value: str):
+    cur = con.cursor()
+    sql = """
+             SELECT id
+             FROM tag
+             WHERE value=?
+          """
+    tag = cur.execute(sql, (value,)).fetchone()
+    if tag == None: return None
+    return tag[0]
+
+
+def _read_tag_value_by_tag_id(con: sqlite3.Connection, tag_id: int):
+    cur = con.cursor()
+    sql = """
+             SELECT value
+             FROM tag
+             WHERE id=?
+          """
+    tag_value = cur.execute(sql, (tag_id,)).fetchone()
+    if tag_value == None: return None
+    return tag_value[0]
+
+
+def _read_all_tag_values(con: sqlite3.Connection):
+
+    con.row_factory = lambda cursor, row: row[0]
+    cur = con.cursor()
+    sql = """
+             SELECT value
+             FROM tag
+          """
+    existing_tags = cur.execute(sql).fetchall()
+    con.row_factory = None
+
+    return existing_tags
+
+
+def _read_test_id_by_name(con: sqlite3.Connection, name: str):
+    cur = con.cursor()
+    sql = """
+             SELECT id
+             FROM test
+             WHERE name=?
+          """
+    test = cur.execute(sql, (name,)).fetchone()
+    if test == None: return None
+    return test[0]
 
 
 def _read_test_by_id(con: sqlite3.Connection, id: int):
-    return
-
-
-def _read_tags_by_test_id(con: sqlite3.Connection, id: int):
-    return
-
-
-def _read_all_tags(con: sqlite3.Connection):
-    return
-
-
-def _get_test_id_by_name(con: sqlite3.Connection, name: str):
-    return
-
-
-def _read_test_by_id(con: sqlite3.Connection, id: int):
-    return
+    cur = con.cursor()
+    sql = """
+             SELECT * FROM test
+             WHERE id=?
+          """
+    test = cur.execute(sql, (id,)).fetchone()
+    return test
 
 
 def _update_test(con: sqlite3.Connection,
@@ -412,15 +481,64 @@ def _update_test(con: sqlite3.Connection,
                  creation_date: datetime.datetime,
                  notes: str,
                  data_file_path: str):
+    '''Update the existing data for the test with the specified name.'''
     return
 
 
-def _save_test_data_to_file(path: str, input: DmgData, output: ndarray):
-    pass
+def _update_tag_links(con: sqlite3.Connection, test_id: int, tag_values: list[str]):
+    '''Sync tags in the test_tags table with those given in this function.
+    
+    Tags found in the database that are not found in the list of tags given
+    here are deleted. Tags provided in the tags list which are not yet present
+    int the database are inserted.
+    '''
+
+    # attempt to add all provided tags to tag via links
+    for value in tag_values:
+        tag_id = _read_tag_id_by_value(con, value)
+        
+        # if tag exists: 
+        if tag_id:
+            # this function handles duplicate tag links
+            _create_tag_link(con, test_id, tag_id) 
+
+    # delete tag links from database which are not present in the list provided
+    existing_tags = _read_linked_tag_ids_by_test_id(con, test_id)
+    for tag_id in existing_tags:
+
+        # check if existing tag value matches one provided
+        existing_tag_value = _read_tag_value_by_tag_id(con, tag_id)
+        if existing_tag_value not in tag_values:
+
+            # if not, delete the link to it from the database
+            _delete_tag_link(con, test_id, tag_id)      
 
 
-def _update_tag_links(id: int, tags: list[str]):
-    pass
+def _delete_tag_link(con: sqlite3.Connection, test_id: int, tag_id: int):
+    cur = con.cursor()
+    sql = """
+             DELETE FROM test_tag 
+             WHERE test_id=?
+             AND tag_id=? 
+          """
+    cur.execute(sql, (test_id, tag_id))
+
+
+def _delete_test_by_id(con: sqlite3.Connection, test_id: int):
+    return
+
+
+def _delete_tag_links_by_test_id(con: sqlite3.Connection, test_id: int):
+    return
+
+
+def _delete_tag_links_by_tag_id(con: sqlite3.Connection, tag_id: int):
+    return
+
+
+def _delete_tag_by_id(con: sqlite3.Connection, tag_id: int):
+    cur = con.cursor()
+    cur.execute("DELETE FROM tag WHERE id=?", (tag_id,))
 
 
 def main():
