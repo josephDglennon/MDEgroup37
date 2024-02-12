@@ -5,6 +5,7 @@ import device_controller
 import database_manager as db
 import customtkinter
 import logging
+import datetime
 
 from database_manager import TestEntry
 from typing import Callable, Tuple
@@ -36,6 +37,9 @@ CONTAINER_BORDER_COLOR = 'gray20'
 BACKGROUND_COLOR = 'gray17'
 BACKGROUND_COLOR_HIGHLIGHTED = 'gray14'
 ITEM_COLOR = 'gray20'
+ITEM_COLOR_HIGHLIGHTED = 'gray27'
+ITEM_BORDER_COLOR = 'gray20'
+ITEM_BORDER_COLOR_SELECTED = 'grey40'
 
 customtkinter.set_appearance_mode("Dark")
 customtkinter.set_default_color_theme("blue")
@@ -124,18 +128,15 @@ class MainWindow(CTk):
         def cancel(text: str):
             return
         
-        if db_manager.get_active_test() != None:
-            self.show_frame(EditTestContextFrame)
-        else:
-            try:
-                TextEntryPrompt(self,
-                                max_characters=12,
-                                prompt_text='Enter a name for test:',
-                                confirm_command=submit,
-                                cancel_command=cancel)
-                
-            except SpawnPromptError:
-                pass # prevent multiple prompts from spawning
+        try:
+            TextEntryPrompt(self,
+                            max_characters=12,
+                            prompt_text='Enter a name for test:',
+                            confirm_command=submit,
+                            cancel_command=cancel)
+            
+        except SpawnPromptError:
+            pass # prevent multiple prompts from spawning
     
     def open_test_button_handler(self):
         self.context_frames[OpenTestContextFrame].update()
@@ -254,9 +255,6 @@ class EditTestContextFrame(CTkFrame):
     def load_test_entry(self, test_data: TestEntry):
         '''Load the data of a preexisting test entry or present a fresh entry
         template for a new test.
-
-        Save a reference to the test data object to add and store data to in the 
-        future.
         '''
 
         # copy test name to field if exists
@@ -268,9 +266,8 @@ class EditTestContextFrame(CTkFrame):
 
         # update recording time stamps if a recording sample exists
 
-        # reload tags from database
-
-        # mark tags associated with the test_data object active
+        # indicate linked tags via checkboxes
+        self.tag_select_frame.sync_tags(test_data.tags)
 
         pass
 
@@ -315,7 +312,17 @@ class EditTestContextFrame(CTkFrame):
     def save_button_handler(self):
         # update active test data entry with data present in the edit form
 
+        # notes
+        db_manager._active_test.notes = self.test_notes_box.get("1.0",'end-1c')
+
+        # active tags
+        db_manager._active_test.tags = self.tag_select_frame.get_selected_tag_values()
+
         # save data entry to database
+        db_manager.save_active_test_data()
+
+        # test jank
+        print(self.tag_select_frame.get_selected_tag_values())
         pass
 
     def cancel_button_handler(self):
@@ -385,76 +392,12 @@ class OutputSummaryFrame(CTkFrame):
         self.summary_header.grid(row=0, column=0, sticky='nsew', pady=5, padx=5)
 
 
-class TagContainer(CTkFrame):
-    """Frame for displaying tag objects in.
-    
-    Parameters
-    ----------
-    parent: Any, 
-    """
-
-    def __init__(self, 
-                 parent,
-                 enable_delete=True,
-                 header_text='Tags'):
-        super().__init__(parent,
-                         fg_color=CONTAINER_COLOR)
-
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(0, weight=0)
-        self.grid_rowconfigure(1, weight=1)
-
-        self.tag_items = []
-        self.num_tags = 0
-        self.enable_delete = enable_delete
-
-        # frame header
-        self.header = CTkLabel(self,
-                               text=header_text,
-                               font=CTkFont(size=14))
-        self.header.grid(row=0, column=0, sticky='n', pady=5)
-
-        # tag scroll window
-        self.tag_scroll_frame = CTkScrollableFrame(self,
-                                                   fg_color=CONTAINER_COLOR)
-        self.tag_scroll_frame.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
-        self.tag_scroll_frame.grid_columnconfigure(1, weight=1)
-
-        # load existing tags
-        existing_tags = db_manager.list_existing_tags()
-        self.load_tags(existing_tags)
-
-
-    def add_tag_item(self, text: str):
-
-        if text == None: return
-
-        self.num_tags += 1
-        new_tag = TagItem(self.tag_scroll_frame,
-                          tag_value=text,
-                          enable_delete=self.enable_delete)
-        new_tag.grid(row=(self.num_tags - 1), column=0, sticky='ew')
-        self.tag_items.append(new_tag)
-
-    def load_tags(self, tags: list):
-
-        self.clear()
-        for tag in tags:
-            self.add_tag_item(tag)
-
-    def clear(self):
-        for tag_item in self.tag_items:
-            tag_item.destroy()
-        
-        self.num_tags = 0
-        self.tag_items = []
-
-
 class TagItem(CTkFrame):
     """A GUI object representing a tag with an activation checkbox and delete button."""
 
     def __init__(self,
                  parent=None,
+                 controller=None,
                  tag_value: str='tag',
                  enable_delete: bool=True):
         """Constructs a GUI representation of a tag
@@ -466,17 +409,18 @@ class TagItem(CTkFrame):
             The text displayed on the tag
         """
         
-        super().__init__(parent, fg_color=ITEM_COLOR,)
+        super().__init__(parent, fg_color=ITEM_COLOR)
 
+        self.controller = controller
         self.tag_value = tag_value
         
-        self.grid(padx=3, pady=3, sticky='nsew')
+        self.grid(sticky='new')
         self.grid_columnconfigure((0,1,2), weight=1)
 
-        self.enabled = False
-
+        self.check_box_variable = customtkinter.BooleanVar()
         self.check_box = CTkCheckBox(self, width=15, border_width=2,
-                                            text='')
+                                            text='',
+                                            variable=self.check_box_variable)
         self.check_box.grid(row=0, column=0, sticky='w', padx=5, pady=5)
 
         self.tag_value_text = CTkLabel(self, text=tag_value, width=120)
@@ -498,7 +442,7 @@ class TagItem(CTkFrame):
         def action_confirmed():
             nonlocal self
             db_manager.delete_tag_by_value(self.tag_value)
-            self.destroy()
+            self.controller.delete_tag_item(self)
 
         try:
             ConfirmSelectionPrompt(self, 
@@ -506,6 +450,97 @@ class TagItem(CTkFrame):
                                    confirm_command=action_confirmed)
         except SpawnPromptError:
             pass # prevent multiple prompts from spawning
+
+    def get_status(self):
+        return self.check_box_variable.get()
+
+
+class TagContainer(CTkFrame):
+    """Frame for displaying tag objects in.
+    
+    Parameters
+    ----------
+    parent: Any, 
+    """
+
+    def __init__(self, 
+                 parent,
+                 enable_delete=True,
+                 header_text='Tags'):
+        super().__init__(parent,
+                         fg_color=CONTAINER_COLOR)
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+
+        self.tag_items: list[TagItem] = [] 
+        self.num_tags = 0
+        self.enable_delete = enable_delete
+
+        # frame header
+        self.header = CTkLabel(self,
+                               text=header_text,
+                               font=CTkFont(size=14))
+        self.header.grid(row=0, column=0, sticky='n', pady=5)
+
+        # tag scroll window
+        self.tag_scroll_frame = CTkScrollableFrame(self,
+                                                   fg_color=CONTAINER_COLOR)
+        self.tag_scroll_frame.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
+        self.tag_scroll_frame.grid_columnconfigure(0, weight=1)
+
+        # load existing tags
+        existing_tags = db_manager.list_existing_tags()
+        self.load_tags(existing_tags)
+
+    def add_tag_item(self, text: str):
+
+        if text == None: return
+
+        self.num_tags += 1
+        new_tag = TagItem(self.tag_scroll_frame,
+                          controller=self,
+                          tag_value=text,
+                          enable_delete=self.enable_delete)
+        new_tag.grid(row=(self.num_tags - 1), column=0, pady=2, sticky='new')
+        self.tag_items.append(new_tag)
+
+    def load_tags(self, tags: list):
+
+        self.clear()
+        if tags:
+            for tag in tags:
+                self.add_tag_item(tag)
+
+    def clear(self):
+        for tag_item in self.tag_items:
+            tag_item.destroy()
+        
+        self.num_tags = 0
+        self.tag_items = []
+
+    def get_selected_tag_values(self):
+        selected_tag_values = []
+
+        for tag in self.tag_items:
+            if tag.get_status() == True:
+                selected_tag_values.append(tag.tag_value)
+
+        if selected_tag_values == []: return None
+        return selected_tag_values
+    
+    def delete_tag_item(self, item: TagItem):
+        self.tag_items.remove(item)
+        item.destroy()
+
+    def sync_tags(self, tags: list[str]):
+
+        if tags:
+            for tag in tags:
+                for item in self.tag_items:
+                    if item.tag_value == tag:
+                        item.check_box.select()
 
 
 class OpenTestContextFrame(CTkFrame):
@@ -521,7 +556,7 @@ class OpenTestContextFrame(CTkFrame):
         self.grid_columnconfigure(2, weight=0)
         self.grid_columnconfigure((1,3), weight=1)
         self.grid_rowconfigure(2, weight=3)
-        self.grid_rowconfigure((0,1,3), weight=0)
+        self.grid_rowconfigure((0,1,3,4), weight=0)
 
         # header label
         self.header_label = CTkLabel(self,
@@ -530,23 +565,33 @@ class OpenTestContextFrame(CTkFrame):
         self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
 
         # search field
-        self.search_field = SearchField(self, command=None)
+        self.search_field = SearchField(self, command=self.search)
         self.search_field.grid(row=1, column=0, padx=20, sticky='nw')
 
         # insert search table
         self.search_table = SearchTable(self)
-        self.search_table.grid(row=2, column=0, padx=20, pady=20, sticky='nsew')
-        #self.search_table.populate()
+        self.search_table.grid(row=2, column=0,
+                               rowspan=2, padx=20, pady=20, sticky='nsew')
 
         # insert tag container
         self.tag_container = TagContainer(self,
                                           enable_delete=False,
                                           header_text='Filter by tag')
-        self.tag_container.grid(row=2, column=2, pady=20, sticky='n')
+        self.tag_container.grid(row=2, column=2, pady=20, sticky='ns')
+
+        # refresh button
+        self.reload_button = CTkButton(self, text='\u27F3',
+                                       fg_color=BACKGROUND_COLOR,
+                                       hover_color=BACKGROUND_COLOR_HIGHLIGHTED,
+                                       command=self.refresh,
+                                       width=20,
+                                       font=CTkFont(size=20, weight="bold"))
+        self.reload_button.grid(row=3, column=2, pady=20, sticky='nw')
+
 
         # open, cancel, and delete button
         button_container = CTkFrame(self, fg_color=BACKGROUND_COLOR)
-        button_container.grid(row=3, column=0, padx=20, pady=20, sticky='we')
+        button_container.grid(row=4, column=0, padx=20, pady=20, sticky='we')
         button_container.grid_columnconfigure((0,1), weight=0)
         button_container.grid_columnconfigure(2, weight=1)
         self.open_button = CTkButton(button_container, width=75,
@@ -564,25 +609,62 @@ class OpenTestContextFrame(CTkFrame):
                                        command=self.delete_button_handler)
         self.delete_button.grid(row=0, column=3, sticky='e')
 
-        
     def delete_button_handler(self):
 
         def confirm_delete():
-            return
+            self.search_table.delete_entry(self.search_table.selected_entry)
         
-        ConfirmSelectionPrompt(self,
-                               prompt_text='Delete test entry?',
-                               confirm_command=confirm_delete)
+        if self.search_table.selected_entry:
+            try:
+                ConfirmSelectionPrompt(self,
+                                    prompt_text='Delete test entry?',
+                                    confirm_command=confirm_delete)
+            except SpawnPromptError:
+                pass # prevent multiple prompts from spawning
         
     def open_button_handler(self):
-        return
+        selected_test = self.search_table.selected_entry
+        if selected_test:
+            test_name = selected_test.test_entry.name
+            entry = db_manager.load_existing_test_by_name(test_name)
+            self.controller.context_frames[EditTestContextFrame].load_test_entry(entry)
+            self.controller.show_frame(EditTestContextFrame)
     
     def cancel_button_handler(self):
         self.controller.show_frame(LandingContextFrame)
-        return
     
     def update(self):
         self.tag_container.load_tags(db_manager.list_existing_tags())
+
+    def refresh(self):
+
+        # get selected tags
+        selected_tags = self.tag_container.get_selected_tag_values()
+
+        # load tests matching tags if tags are selected
+        if selected_tags:
+            self.search_table.populate(db_manager.list_tests_by_tags(selected_tags))
+
+        # otherwise load all tests 
+        else:
+            test_ids = db_manager.list_test_ids()
+            if test_ids: 
+                test_entries = []
+                for id in test_ids:
+                    test_entries.append(db_manager._load_test_by_id(id))
+
+                self.search_table.populate(test_entries)
+
+    def search(self, test_name):
+
+        # populate with searched test or nothing if none found
+        if test_name != '':
+            searched_entry = [db_manager._load_test_by_name(test_name)]
+            self.search_table.populate(searched_entry)
+
+        # if search invoked with no search string, behave like refresh
+        else:
+            self.refresh()
 
 
 class SearchField(CTkFrame):
@@ -596,17 +678,98 @@ class SearchField(CTkFrame):
 
         self.grid_columnconfigure((0,1), weight=1)
         self.search_entry = CTkEntry(self, width=250,
-                                placeholder_text='search by id or name',
+                                placeholder_text='search by name',
                                 fg_color=CONTAINER_COLOR,
                                 border_color=CONTAINER_BORDER_COLOR)
         self.search_entry.grid(row=0, column=0, sticky='w')
+        self.search_entry.bind("<Return>", self.search_button_handler)
+        self.search_entry.bind("<Button-1>", self.search_entry_click)
+
         self.search_button = CTkButton(self, width=75,
                                   text='Search',
                                   command=self.search_button_handler)
         self.search_button.grid(row=0, column=1, padx=10)
 
-    def search_button_handler(self):
-        if self.command: self.command(self.search_entry.get())
+    def search_button_handler(self, event=None):
+        search_text = self.search_entry.get().strip()
+        if self.command: self.command(search_text)
+
+    def search_entry_click(self, event):
+        self.search_entry.icursor(0)
+        self.search_entry.select_range(0, 'end')
+
+
+class SearchTestEntry(CTkFrame):
+    def __init__(self, parent, controller, test_entry: TestEntry):
+        super().__init__(parent, fg_color=ITEM_COLOR, border_width=1, border_color=ITEM_BORDER_COLOR)
+
+        self.grid(row=0, column=0, padx=2, pady=2, sticky='ew')
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=0)
+        self.grid_columnconfigure(2, weight=1)
+        self.grid_columnconfigure(3, weight=0)
+        self.grid_columnconfigure(4, weight=2)
+
+        self.test_entry = test_entry
+        self.controller = controller
+        self.bind("<Button-1>", self.on_clicked)
+
+        name = self.test_entry.name
+
+        formatted_date = self.test_entry.creation_date.strftime("%m/%d/%Y")
+        formatted_tags = ''
+
+        num_tags = 0
+        tags = self.test_entry.tags
+        if tags:
+            for tag in tags:
+
+                num_tags += 1
+                formatted_tags += str(tag)
+
+                if num_tags < len(tags):
+                    
+                    # max shown tags is 3, use ... to indicate there are more than shown
+                    if num_tags == 3:
+                        formatted_tags += ', ...'
+                        break
+
+                    # separate displayed tags with comma
+                    else:
+                        formatted_tags += ', '
+
+        entry_labels = [
+            # text, padx, pady, sticky
+            (name, 3, 3, None),
+            ('|', 0, 3, None),
+            (formatted_date, 3, 3, None),
+            ('|', 0, 3, None),
+            (formatted_tags, 3, 3, None)
+        ]
+        column=0
+        for label in entry_labels:
+            entry_label = CTkLabel(self,
+                                    text=label[0],
+                                    font=CTkFont(size=14, weight="bold"))
+            entry_label.bind("<Button-1>", self.on_clicked)
+            entry_label.grid(row=0,
+                              column=column,
+                              padx=label[1],
+                              pady=label[2],
+                              sticky=label[3])
+            column += 1
+
+    def on_clicked(self, event):
+        self.controller.select(self)
+
+    def select(self):
+        self.configure(fg_color=ITEM_COLOR_HIGHLIGHTED)
+        self.configure(border_color=ITEM_BORDER_COLOR_SELECTED)
+
+    def deselect(self):
+        self.configure(fg_color=ITEM_COLOR)
+        self.configure(border_color=ITEM_BORDER_COLOR)
 
 
 class SearchTable(CTkFrame):
@@ -618,28 +781,32 @@ class SearchTable(CTkFrame):
                          border_width=2,
                          height=370)
         
+        self.num_entries = 0
+        self.selected_entry = None
+        self.entries = []
+        
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
 
-        column_headers = CTkFrame(self)
+        column_headers = CTkFrame(self, corner_radius=0)
         column_headers.grid(row=0, column=0, padx=2, pady=2, sticky='ew')
         column_headers.grid_rowconfigure(0, weight=0)
         column_headers.grid_columnconfigure(0, weight=1)
-        column_headers.grid_columnconfigure(1, weight=2)
-        column_headers.grid_columnconfigure(2, weight=2)
-        column_headers.grid_columnconfigure(3, weight=2)
+        column_headers.grid_columnconfigure(1, weight=0)
+        column_headers.grid_columnconfigure(2, weight=1)
+        column_headers.grid_columnconfigure(3, weight=0)
         column_headers.grid_columnconfigure(4, weight=2)
 
-        # [id] [name] [date] [status] [tags]
+        #[name] [date] [tags]
 
         header_labels = [
             # text, padx, pady, sticky
-            ('id', 3, 3, None),
-            ('name', 3, 3, None),
-            ('date', 3, 3, None),
-            ('status', 3, 3, None),
-            ('tags', 3, 3, None)
+            ('Name', 3, 3, None),
+            ('|', 0, 3, None),
+            ('Date', 3, 3, None),
+            ('|', 0, 3, None),
+            ('Tags', 3, 3, None)
         ]
         column=0
         for label in header_labels:
@@ -656,14 +823,79 @@ class SearchTable(CTkFrame):
         self.scroll_container = CTkScrollableFrame(self,
                                                    fg_color='transparent')
         self.scroll_container.grid(row=1, column=0, padx=3, pady=3, sticky='nsew')
-        
-    def populate(self, test_entries: list[TestEntry]):
-        return
-    
+        self.scroll_container.grid_columnconfigure(0, weight=1)
 
-class TestEntry(CTkFrame):
-    def __init__(self, parent):
-        super().__init__(parent)
+        # example entries
+        #test_entries = [
+        #    TestEntry(name='test1', creation_date=datetime.datetime.now(), tags=['bum', 'goats', 'nerds', 'bum', 'goats', 'nerds']),
+        #    TestEntry(name='test2', creation_date=datetime.datetime.now(), tags=['bum', 'goats', 'nerds']),
+        #    TestEntry(name='test3', creation_date=datetime.datetime.now(), tags=['bum', 'goats'])
+        #]
+
+        #for test in test_entries:
+        #    self.add_entry(test)
+
+        existing_test_ids = db_manager.list_test_ids()
+        existing_test_entries = []
+
+        if existing_test_ids:
+            for id in existing_test_ids:
+                test_entry = db_manager._load_test_by_id(id)
+                existing_test_entries.append(test_entry)
+
+        self.populate(existing_test_entries)
+
+    def populate(self, test_entries: list[TestEntry]):
+
+        # clear the table
+        self.num_entries = 0
+        
+        for entry in self.entries:
+            self.remove_entry(entry)
+
+        self.entries = []
+
+        if test_entries:
+            for entry in test_entries:
+                self.add_entry(entry)
+
+    
+    def select(self, entry: SearchTestEntry):
+
+        if self.selected_entry == None:
+            entry.select()
+            self.selected_entry = entry
+        else:
+            if entry == self.selected_entry:
+                self.selected_entry.deselect()
+                self.selected_entry = None
+            else:
+                self.selected_entry.deselect()
+                self.selected_entry = entry
+                self.selected_entry.select()
+    
+    def add_entry(self, entry: TestEntry):
+        
+        entry_item = None
+
+        if entry:
+            entry_item = SearchTestEntry(self.scroll_container, self, entry)
+            entry_item.grid(row=self.num_entries, column=0, sticky='new')
+            self.entries.append(entry_item)
+            self.num_entries += 1
+
+    def remove_entry(self, entry: SearchTestEntry):
+
+        if entry == self.selected_entry: self.selected_entry = None
+        entry.destroy()
+
+    def delete_entry(self, entry: SearchTestEntry):
+
+        if entry:
+            if entry == self.selected_entry: self.selected_entry = None
+            db_manager.delete_test_entry_by_name(entry.test_entry.name)
+            self.entries.remove(entry)
+            entry.destroy()
 
 
 class SettingsContextFrame(CTkFrame):

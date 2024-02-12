@@ -220,6 +220,7 @@ def test_read_test_id_by_name():
     db._create_test(con, 'test2', datetime.datetime.now(), '', '')
     db._create_test(con, 'test3', datetime.datetime.now(), '', '')
 
+    assert db._read_test_id_by_name(con, '') == None
     assert db._read_test_id_by_name(con, 'test0') == None
     assert db._read_test_id_by_name(con, 'test1') == 1
     assert db._read_test_id_by_name(con, 'test2') == 2
@@ -252,6 +253,74 @@ def test_read_test_by_id():
         assert test == test_values[id - 1]
 
     assert db._read_test_by_id(con, 0) == None
+
+    con.close()
+    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+
+
+def test_read_test_ids_linked_to_tag():
+
+    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    con = db._connect()
+    cur = con.cursor()
+
+    db._create_tag(con, 'tag1')
+    db._create_tag(con, 'tag2')
+    db._create_tag(con, 'tag3')
+    db._create_tag(con, 'tag4')
+
+    db._create_tag_link(con, 1, 1)
+    db._create_tag_link(con, 2, 1)
+    db._create_tag_link(con, 3, 1)
+    db._create_tag_link(con, 4, 1)
+    db._create_tag_link(con, 5, 2)
+    db._create_tag_link(con, 6, 3)
+
+    linked_test_ids = db._read_test_ids_linked_to_tag(con, 'tag1')
+
+    assert 1 in linked_test_ids
+    assert 2 in linked_test_ids
+    assert 3 in linked_test_ids
+    assert 4 in linked_test_ids
+
+    assert 5 not in linked_test_ids
+    assert 6 not in linked_test_ids
+
+    linked_test_ids = db._read_test_ids_linked_to_tag(con, 'tag4')
+    assert linked_test_ids == None
+
+    linked_test_ids = db._read_test_ids_linked_to_tag(con, 'nonexistent')
+    assert linked_test_ids == None
+
+    con.close()
+    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+
+
+def test_read_all_test_ids():
+
+    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    con = db._connect()
+    cur = con.cursor()
+
+    db._create_test(con, 'test1', datetime.datetime.now(), 'notes1', 'path1')
+    db._create_test(con, 'test2', datetime.datetime.now(), 'notes2', 'path2')
+    db._create_test(con, 'test3', datetime.datetime.now(), 'notes3', 'path3')
+    db._create_test(con, 'test4', datetime.datetime.now(), 'notes4', 'path4')
+
+    existing_tests = db._read_all_test_ids(con)
+    assert len(existing_tests) == 4
+
+    db._delete_test_by_id(con, 2)
+
+    existing_tests = db._read_all_test_ids(con)
+    assert len(existing_tests) == 3
+
+    db._delete_test_by_id(con, 1)
+    db._delete_test_by_id(con, 3)
+    db._delete_test_by_id(con, 4)
+
+    existing_tests = db._read_all_test_ids(con)
+    assert existing_tests == None
 
     con.close()
     os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
