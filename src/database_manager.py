@@ -156,7 +156,7 @@ class DatabaseManager:
         con = _connect()
 
         # check if test has been assigned an entry in the database tables 
-        test_id = _read_test_id_by_name(self._active_test.name)
+        test_id = _read_test_id_by_name(con, self._active_test.name)
 
         # delete it
         if test_id:

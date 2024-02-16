@@ -264,7 +264,7 @@ class EditTestContextFrame(CTkFrame):
         self.test_notes_box.delete('1.0', 'end-1c')
         if test_data.notes: self.test_notes_box.insert('1.0', test_data.notes)
 
-        # update recording time stamps if a recording sample exists
+        # load and update recording time stamps if a recording sample exists
 
         # indicate linked tags via checkboxes
         self.tag_select_frame.sync_tags(test_data.tags)
@@ -318,6 +318,8 @@ class EditTestContextFrame(CTkFrame):
         # active tags
         db_manager._active_test.tags = self.tag_select_frame.get_selected_tag_values()
 
+        # data files
+
         # save data entry to database
         db_manager.save_active_test_data()
 
@@ -329,6 +331,7 @@ class EditTestContextFrame(CTkFrame):
 
         def confirm_cancel():
             self.controller.show_frame(LandingContextFrame)
+            db_manager.discard_active_entry()
             return
         
         def cancel_cancel():
@@ -535,6 +538,9 @@ class TagContainer(CTkFrame):
         item.destroy()
 
     def sync_tags(self, tags: list[str]):
+
+        for item in self.tag_items:
+            item.check_box.deselect()
 
         if tags:
             for tag in tags:
