@@ -1,0 +1,14 @@
+Instructions for getting on ARC systems:
+
+ARC uses ssh to access the server and scp to transfer files.
+
+To access ARC servers:
+1) Download Pulse Secure VPN from Virginia Tech Network Software
+2) Connect to Pulse Secure VPN if off-campus, 
+	if on-campus then VPN is not requried. 
+3) This project specifically uses the Infer cluster. To connect to it type in:
+	ssh [pid]@infer1.arc.vt.edu
+4) Type in PID password. Use DUO to authenticate. 
+5) You are successfully logged in. 
+
+For more info look at: docs.arc.vt.edu
