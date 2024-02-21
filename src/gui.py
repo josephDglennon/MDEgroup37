@@ -831,16 +831,6 @@ class SearchTable(CTkFrame):
         self.scroll_container.grid(row=1, column=0, padx=3, pady=3, sticky='nsew')
         self.scroll_container.grid_columnconfigure(0, weight=1)
 
-        # example entries
-        #test_entries = [
-        #    TestEntry(name='test1', creation_date=datetime.datetime.now(), tags=['bum', 'goats', 'nerds', 'bum', 'goats', 'nerds']),
-        #    TestEntry(name='test2', creation_date=datetime.datetime.now(), tags=['bum', 'goats', 'nerds']),
-        #    TestEntry(name='test3', creation_date=datetime.datetime.now(), tags=['bum', 'goats'])
-        #]
-
-        #for test in test_entries:
-        #    self.add_entry(test)
-
         existing_test_ids = db_manager.list_test_ids()
         existing_test_entries = []
 
