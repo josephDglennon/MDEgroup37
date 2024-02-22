@@ -1,15 +1,13 @@
-- AI model should determine at what times damage was detected in the sample
-    - Cross reference the HPM trigger time stamps with this to determine the damage score
 
-- Would it be easiest and possibly best to save audio directly in database and recall via that?
-    - Or should we stage everything in some kind of data class before loading it into the database?
+todo: 
+    - gui output representation
+    - link hardware to gui
+        - hardware selection options
 
-- Stats HW Mon Feb 12:
-    - textbook pg 38 #5, 13
-    - exercises #13, 14, 20
+    - synthesize test/training data
 
-- Exam Monday Feb 19
-- Homework Due Feb 21:
-    - exercises ch3 #1, 2, 3
-    - textbook pg 43 #6
-    - textbook pg 81 #7
+    - detect damage (signal_processor.py)
+        - either via machine learning or analytical means
+
+    - score damage (signal_processor.py)
+        - create algorithm to rate damage occurances from trigger_detections and dmg_detections arrays as input
