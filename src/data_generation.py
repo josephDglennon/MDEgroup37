@@ -29,9 +29,9 @@ class TestSample:
         'length' divided by 'frame_width' elements in it.
     '''
 
-    audio_wave_form: ndarray = field(default_factory=ndarray)
+    audio_wave_form: ndarray = None
     audio_sample_rate: int = None
-    expected_output: ndarray = field(default_factory=ndarray)
+    expected_output: ndarray = None
     frame_width: int = 20
 
 
@@ -46,8 +46,9 @@ class SampleBuilder:
         self.new_sample()
         return sample
 
-    def new_sample(self):
+    def new_sample(self, frame_width=20):
         self._sample = TestSample()
+        self._sample.frame_width = frame_width
 
     def append_background_audio(self,
                                 audio_data: ndarray,
@@ -55,11 +56,16 @@ class SampleBuilder:
                                 length: int,
                                 strength: float=1.0,
                                 overlap: int=0):
+        '''Tile together an audio backing track using a pre-existing audio file and
+        append it to the sample in progress.'''
 
         # match current signal with the sample rate of the signal being added
-        self._sample.audio_wave_form, audio_data, 
+        self._sample.audio_wave_form, audio_data, common_sample_rate = _match_signals(self._sample.audio_wave_form,
+                                                                                      self._sample.audio_sample_rate,
+                                                                                      audio_data,
+                                                                                      audio_sample_rate)
+        self._sample.audio_sample_rate = common_sample_rate
 
-        self._sample.audio_wave_form = background
 
     def insert_damage_audio(self,
                             audio_data: ndarray,
@@ -94,6 +100,15 @@ def _match_signals(sig_1, sr_1, sig_2, sr_2):
         Amplitude data for the second signal
     sr_2: int
         Samplerate of the seconds signal
+
+    Returns
+    -------
+    sig_1: ndarray
+        First signal adjusted to the common sample rate
+    sig_2: ndarray
+        Second signal adjusted to the common sample rate
+    common_sr: int
+        The common samplerate
     '''
 
     common_sr = max(sr_1, sr_2)
