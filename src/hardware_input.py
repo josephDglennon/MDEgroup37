@@ -1,6 +1,5 @@
 import time
 import sounddevice
-import soundfile
 import os
 import sys
 import numpy
