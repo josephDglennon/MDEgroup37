@@ -14,6 +14,7 @@ class DmgData:
     audio_data: ndarray = field(init=False)
     trigger_data: ndarray = field(init=False)
     output_data: ndarray = field(init=False)
+    ard_samplerate: int = field(init=False)
 
 
 @dataclass
