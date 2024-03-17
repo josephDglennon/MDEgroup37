@@ -3,7 +3,7 @@ import numpy as np
 from numpy import ndarray
 
 
-def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, frame_length: int) -> ndarray:
+def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int) -> ndarray:
     '''Using analytical means, detects occurances of damage in the sample.
     
     Parameters
@@ -12,20 +12,18 @@ def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, fram
         The raw amplitude data for the audio sample
     audio_sample_rate: int
         The sample rate with which the audio data was recorded
-    frame_length: int
-        The desired width of the frame that the output should be mapped to.
 
     Return
     ------
     dmg_detections: ndarray
-        Each value in this array represents the damage status of a 'frame_width' sized
-        chunk of the input audio data. Values may be either 1 or 0 representing the 
+        Each value in this array represents the damage status of a sample
+        of the input audio data. Values may be either 1 or 0 representing the 
         presence (or lack thereof) of damage in the sample.
     '''
     pass
 
 
-def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_length: int) -> ndarray:
+def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int) -> ndarray:
     '''Using machine learning, detects occurances of damage in the sample.
     
     Parameters
@@ -34,8 +32,6 @@ def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_len
         The raw amplitude data for the audio sample
     audio_sample_rate: int
         The sample rate with which the audio data was recorded
-    frame_length: int
-        The desired width of the frame that the output should be mapped to.
 
     Return
     ------
@@ -47,7 +43,7 @@ def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_len
     pass
 
 
-def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, frame_width: int) -> ndarray:
+def score_damage(dmg_detections: ndarray, trigger_detections: ndarray) -> ndarray:
     '''Analyzes damage detections alongside trigger detections to rate and score the
     occurances of damage in the sample.
 
@@ -72,14 +68,12 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, frame_wid
     trigger_detections: ndarray
         An array representing detections of a trigger signal on a per-frame basis. 1 indicates
         signal-active, 0 indicates signal-inactive
-    frame_width: int
-        The width of a frame in ms
 
     Return
     ------
     damage_score: ndarray
         An array which contains the damage rating/score for each frame in the input sample. Values
-        in this array may be 0-4 indicating the class of damage present in each frame. 
+        in this array may be 0-4 indicating the class of damage present in each sample. 
 
     '''
     pass
