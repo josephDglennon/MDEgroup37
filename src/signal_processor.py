@@ -1,9 +1,9 @@
 
 import numpy as np
-from numpy import ndarray
+from numpy import ndarray, zeros
 
 
-def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, frame_length: int) -> ndarray:
+def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int) -> ndarray:
     '''Using analytical means, detects occurances of damage in the sample.
     
     Parameters
@@ -12,20 +12,18 @@ def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, fram
         The raw amplitude data for the audio sample
     audio_sample_rate: int
         The sample rate with which the audio data was recorded
-    frame_length: int
-        The desired width of the frame that the output should be mapped to.
 
     Return
     ------
     dmg_detections: ndarray
-        Each value in this array represents the damage status of a 'frame_width' sized
-        chunk of the input audio data. Values may be either 1 or 0 representing the 
+        Each value in this array represents the damage status of a sample
+        of the input audio data. Values may be either 1 or 0 representing the 
         presence (or lack thereof) of damage in the sample.
     '''
     pass
 
 
-def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_length: int) -> ndarray:
+def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int) -> ndarray:
     '''Using machine learning, detects occurances of damage in the sample.
     
     Parameters
@@ -34,8 +32,6 @@ def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_len
         The raw amplitude data for the audio sample
     audio_sample_rate: int
         The sample rate with which the audio data was recorded
-    frame_length: int
-        The desired width of the frame that the output should be mapped to.
 
     Return
     ------
@@ -47,7 +43,7 @@ def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_len
     pass
 
 
-def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, frame_width: int) -> ndarray:
+def score_damage(dmg_detections: ndarray, trigger_detections: ndarray) -> ndarray:
     '''Analyzes damage detections alongside trigger detections to rate and score the
     occurances of damage in the sample.
 
@@ -72,21 +68,62 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, frame_wid
     trigger_detections: ndarray
         An array representing detections of a trigger signal on a per-frame basis. 1 indicates
         signal-active, 0 indicates signal-inactive
-    frame_width: int
-        The width of a frame in ms
 
     Return
     ------
     damage_score: ndarray
         An array which contains the damage rating/score for each frame in the input sample. Values
-        in this array may be 0-4 indicating the class of damage present in each frame. 
-
+        in this array may be 0-4 indicating the class of damage present in each sample. 
     '''
-    pass
+    
+    if len(dmg_detections) != len(trigger_detections):
+        raise ValueError("Arrays must be the same size.")
+
+    damage_score = zeros(len(dmg_detections))
+
+    trigger_on = False
+    trigger_on_frame = -1
+    trigger_off_frame = -1
+
+    for i in range(len(dmg_detections)):
+        if trigger_detections[i] == 1:
+            trigger_on = True
+            trigger_on_frame = i # i-(5 seconds) ?
+
+        if trigger_detections[i] == 0:
+            trigger_on = False
+        
+        if i >= 2 and trigger_detections[i] == 0 and trigger_detections[i-1] == 1:
+            trigger_off_frame = i
+
+
+        if dmg_detections[i] == 0 and not trigger_on:
+            damage_score[i] = 0
+        
+        elif dmg_detections[i] == 0 and trigger_on:
+            damage_score[i] = 1
+        elif dmg_detections[i] == 0 and not trigger_on and i - trigger_off_frame > 1: # 1 frame difference
+            damage_score[i] = 2
+        elif dmg_detections[i] == 1 and not trigger_on and i - trigger_off_frame < 5: # 5 frame difference
+            damage_score[i] = 3
+        elif dmg_detections[i] == 1 and not trigger_on:
+            damage_score[i] = 4
+        
+
+        
+    return damage_score
+    
     
 
 def main():
-    pass
+    dmg_detections = np.array([    0, 0, 0, 0, 0, 0, 0, 0, 0,  1,  1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1,1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1])
+    trigger_detections = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0,  1,  0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0])
+
+    # Call the function
+    damage_score = score_damage(dmg_detections, trigger_detections)
+
+    # Print the output
+    print(damage_score)
 
 if __name__ == '__main__':
     main()

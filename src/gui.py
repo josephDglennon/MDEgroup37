@@ -1,12 +1,14 @@
 
 import os
-#import sounddevice
-import device_controller
+import sounddevice
 import database_manager as db
 import customtkinter
 import logging
 import datetime
+import threading
+import time
 
+from hardware_input import HardwareInput
 from database_manager import TestEntry
 from typing import Callable, Tuple
 from customtkinter import (
@@ -45,6 +47,8 @@ customtkinter.set_appearance_mode("Dark")
 customtkinter.set_default_color_theme("blue")
 
 db_manager = db.DatabaseManager()
+
+_exit_processes = list()
 
 class MainWindow(CTk):
     """The primary window object for the application GUI."""
@@ -146,6 +150,16 @@ class MainWindow(CTk):
     def settings_button_handler(self):
         self.show_frame(SettingsContextFrame)
         return 
+    
+    def on_close(self):
+        self.exit_processes()
+        self.destroy()
+        self.quit()
+        exit()
+
+    def exit_processes(self):
+        global _exit_processes
+        for process in _exit_processes: process()
 
 
 class LandingContextFrame(CTkFrame):
@@ -196,8 +210,8 @@ class EditTestContextFrame(CTkFrame):
         self.test_notes_box.grid(row=1, column=0, padx=20, sticky='nsew')
 
         # audio/signal sample recording panel
-        sample_recording_frame = SampleRecordingFrame(self)
-        sample_recording_frame.grid(row=2, column=0, padx=20, pady=20, sticky='nsew')
+        self.sample_recording_frame = SampleRecordingFrame(self)
+        self.sample_recording_frame.grid(row=2, column=0, padx=20, pady=20, sticky='nsew')
 
         # process sample panel
         process_panel = CTkFrame(self, fg_color=BACKGROUND_COLOR)
@@ -339,7 +353,7 @@ class EditTestContextFrame(CTkFrame):
         
         try:
             ConfirmSelectionPrompt(self,
-                                   prompt_text='Cancel test and discard data?',
+                                   prompt_text='Discard unsaved data?',
                                    confirm_command=confirm_cancel,
                                    cancel_command=cancel_cancel)
             
@@ -348,9 +362,20 @@ class EditTestContextFrame(CTkFrame):
 
 
 class SampleRecordingFrame(CTkFrame):
+
+    global _exit_processes
+
     def __init__(self, parent):
         super().__init__(parent, width=250,
                          fg_color=CONTAINER_COLOR)
+        
+        self.timer_thread = None
+        self.rec_hardware = HardwareInput()
+        self.is_recording = False
+        self.time_started_recording = None
+
+        _exit_processes.append(self.rec_hardware.stop_recording)
+        _exit_processes.append(self.stop_button_handler)
         
         self.grid_columnconfigure((0,1,2), weight=1)
         self.grid_rowconfigure((0,1,2), weight=0)
@@ -359,22 +384,69 @@ class SampleRecordingFrame(CTkFrame):
                                                       font=CTkFont(size=14))
         self.header.grid(row=0, column=0, columnspan=3)
         self.sample_cursor_time = CTkLabel(self,
-                                           text='00:00 / 00:00')
+                                           text='00:00:00 / 00:00:00')
         self.sample_cursor_time.grid(row=1, column=0, columnspan=3)
         self.record_button = CTkButton(self, width=75,
                                        text='Record',
-                                       command=None)
+                                       command=self.record_button_handler)
         self.record_button.grid(row=2, column=0, padx=2, pady=3, sticky='nsew')
         self.play_button = CTkButton(self,  width=75,
                                      text='Play',
-                                     command=None,)
+                                     command=self.play_button_handler)
         self.play_button.grid(row=2, column=1, padx=2, pady=3, sticky='nsew')
         self.stop_button = CTkButton(self,  width=75,
                                      text='Stop',
-                                     command=None,
+                                     command=self.stop_button_handler,
                                      fg_color=WARNING_COLOR,
                                      hover_color=WARNING_COLOR_HIGHLIGHTED)
         self.stop_button.grid(row=2, column=2, padx=2, pady=3, sticky='nsew')
+
+    def update_recording_timer(self):
+
+        elapsed_time = time.time() - self.time_started_recording
+        hours, rem = divmod(elapsed_time, 3600)
+        minutes, seconds = divmod(rem, 60)
+
+        time_string = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes), seconds)
+        self.sample_cursor_time.configure(text='00:00:00 / ' + time_string)
+
+        if self.is_recording:
+            self.timer_thread = threading.Timer(.05, self.update_recording_timer)
+            self.timer_thread.start()
+
+    def record_button_handler(self):
+
+        # toggle recording flag and disable play button
+        self.is_recording = True
+        self.play_button.configure(state='disabled')
+
+        # stop audio playback if in progress
+        sounddevice.stop()
+
+        # begin recording
+        self.rec_hardware.start_recording()
+
+        # start timer
+        self.time_started_recording = time.time()
+        self.update_recording_timer()
+
+    def play_button_handler(self):
+
+        data = self.rec_hardware.get_data()
+        sounddevice.play(data.audio_data, data.sample_rate)
+
+    def stop_button_handler(self):
+
+        print('stop button')
+
+        # toggle recording flag and re-enable play button
+        self.is_recording = False
+        self.play_button.configure(state='normal')
+
+        # stop audio playback if in progress
+        sounddevice.stop()
+
+        self.rec_hardware.stop_recording()
 
 
 class OutputSummaryFrame(CTkFrame):
@@ -1166,4 +1238,5 @@ def center_window(toplevel: CTkToplevel):
 
 if __name__ == '__main__':
     app = MainWindow()
+    app.protocol("WM_DELETE_WINDOW", app.on_close)
     app.mainloop()

@@ -5,24 +5,32 @@ import sys
 import numpy
 import pyfirmata
 import threading
+import data_generation
 
 from numpy import ndarray
 from dataclasses import dataclass, field
-
-from database_manager import DmgData
-
 from database_manager import DmgData
 
 # todo: eventually implement a device manager to pick the desired microphone
+
 class AnalogReaderThread(threading.Thread):
+
+    class AnalogReaderException(Exception):
+        def __init__(self, port):
+            super().__init__()
+
     def __init__(self, port):
         super().__init__()
-        self.board = pyfirmata.Arduino(port)
-        self.it = pyfirmata.util.Iterator(self.board)
-        self.it.start()
-        self.analog_pin = self.board.get_pin('a:0:i')
-        self._stop_event = threading.Event()
-        self.analog_values = []
+        try:
+            self.board = pyfirmata.Arduino(port)
+            self.analog_pin = self.board.get_pin('a:0:i')
+            self.it = pyfirmata.util.Iterator(self.board)
+            self.it.start()
+            self._stop_event = threading.Event()
+            self.analog_values = []
+
+        except:
+            raise self.AnalogReaderException('An issue occured while setting up analog reader. Ensure hardware is connected.')           
 
     def stop(self):
         self._stop_event.set()
@@ -68,7 +76,12 @@ class HardwareInput():
         self.stop_time = 10
         self.elapsed_time = 0
 
-        self.analog_reader_thread = AnalogReaderThread('COM4')
+        try:
+            self.analog_reader_thread = AnalogReaderThread('COM4')
+
+        except AnalogReaderThread.AnalogReaderException as e:
+            print(e)
+            self.analog_reader_thread = None
 
         def audio_callback(indata, frames, time, status):
             """callback for consumption of audio data from stream"""
@@ -77,7 +90,6 @@ class HardwareInput():
                 print(status, file=sys.stderr)
 
             self._audio_blocks.append(indata.copy())
-
         
         self._audio_input_device_ID = 1
         self._device_info = sounddevice.query_devices(self._audio_input_device_ID)
@@ -94,8 +106,12 @@ class HardwareInput():
             self._audio_blocks = []
             self._is_recording = True
             self._audio_stream.start()
-            self.analog_reader_thread.start()
-            self.start_time = time.time()
+            if self.analog_reader_thread:
+                self.analog_reader_thread.start()
+                self.start_time = time.time()
+            else:
+                print('Recording without analog reader.')
+            
 
     def stop_recording(self):
         """Stop recording sample"""
@@ -103,11 +119,13 @@ class HardwareInput():
         if self._is_recording:
             self._is_recording = False
             self._audio_stream.stop()
-            self.analog_reader_thread.stop()
-            self.stop_time = time.time()
-            self.analog_reader_thread.join()
-            self._highlow_values = self.analog_reader_thread.get_analog_values()
-            self.elapsed_time = self.stop_time - self.start_time
+
+            if self.analog_reader_thread:
+                self.analog_reader_thread.stop()
+                self.stop_time = time.time()
+                self.analog_reader_thread.join()
+                self._highlow_values = self.analog_reader_thread.get_analog_values()
+                self.elapsed_time = self.stop_time - self.start_time
 
     def get_data(self):
         """Return a SampleData object containing audio array, trigger array, and samplerate"""
@@ -118,8 +136,20 @@ class HardwareInput():
         output_data = DmgData()
         output_data.sample_rate = self._sample_rate
         output_data.audio_data = numpy.concatenate(self._audio_blocks)
-        output_data.trigger_data = numpy.array(self._highlow_values, dtype=numpy.int32)
-        output_data.ard_samplerate = int(output_data.trigger_data.shape[0] / self.elapsed_time)
+
+        if self.analog_reader_thread:
+
+            arduino_sample_rate = int(output_data.trigger_data.shape[0] / self.elapsed_time)
+            trigger_data = numpy.array(self._highlow_values, dtype=numpy.int32)
+
+            # resample trigger data so it is same as audio
+            res_audio, res_trigger, res_sr = data_generation._match_signals(output_data.audio_data,
+                                                                            output_data.sample_rate,
+                                                                            trigger_data,
+                                                                            arduino_sample_rate)
+            output_data.audio_data = res_audio
+            output_data.trigger_data = res_trigger
+            output_data.sample_rate = res_sr
 
         return output_data
 
