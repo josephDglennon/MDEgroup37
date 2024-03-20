@@ -1,105 +1,109 @@
-import librosa
-import librosa.display
-import sys
+
 import numpy as np
+from numpy import ndarray
 
-import matplotlib.pyplot as plt
-import matplotlib
 
-from scipy import signal
-from scipy.io.wavfile import write
-from hardware_input import DmgData
 
-sys.path.append('..')
-
-class SignalProcessor():
-    """This class produces a classification/prediction based on the raw data provided to it.
-
-    The signal processor is callable when instantiated and is invoked on a DmgData
-    object containing raw data from the HardwareInput module to produce an output.
-    """
-
-    def __call__(self, raw_data: DmgData):
-        """"""
-        return
+def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, threshold: float = 0.225) -> ndarray:
+    '''Using analytical means, detects occurances of damage in the sample.
     
+    Parameters
+    ----------
+    audio_data: ndarray
+        The raw amplitude data for the audio sample
+    audio_sample_rate: int
+        The sample rate with which the audio data was recorded
+    frame_length: int
+        The desired width of the frame that the output should be mapped to.
+
+    Return
+    ------
+    dmg_detections: ndarray
+        Each value in this array represents the damage status of a 'frame_width' sized
+        chunk of the input audio data. Values may be either 1 or 0 representing the 
+        presence (or lack thereof) of damage in the sample.
+    '''
+    # Calculate the number of frames per quarter-second
+    frames_per_qtr_sec = int(0.25 * audio_sample_rate)
+
+    # Calculate the mean amplitude for the first second
+    avg_amplitude = np.mean(np.abs(audio_data[:frames_per_qtr_sec]))
+
+    # Detect significant changes in amplitude
+    dmg_detections = np.zeros(len(audio_data), dtype=int)
+    for i in range(0, len(audio_data), frames_per_qtr_sec):
+        chunk = audio_data[i:i+frames_per_qtr_sec]
+        chunk_mean = np.mean(np.abs(chunk))
+        if abs(chunk_mean - avg_amplitude) > threshold * avg_amplitude:
+            # Timestamp every frame 0.25 seconds after the detected frame
+            for j in range(i, min(i + frames_per_qtr_sec, len(audio_data))):
+                dmg_detections[j] = 1
+
+    return dmg_detections
+
+
+def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_length: int) -> ndarray:
+    '''Using machine learning, detects occurances of damage in the sample.
     
-    def _audio_to_spectrogram(self, raw_data: DmgData):
-        """Create a spectrogram of the input data"""
+    Parameters
+    ----------
+    audio_data: ndarray
+        The raw amplitude data for the audio sample
+    audio_sample_rate: int
+        The sample rate with which the audio data was recorded
+    frame_length: int
+        The desired width of the frame that the output should be mapped to.
 
-        # todo: generate spectrogram
+    Return
+    ------
+    dmg_detections: ndarray
+        Each value in this array represents the damage status of a 'frame_width' sized
+        chunk of the input audio data. Values may be either 1 or 0 representing the 
+        presence (or lack thereof) of damage in the sample.
+    '''
+    pass
 
-        visualize_audio(raw_data) # basic visualization of the audio time/frequency domain
 
+def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, frame_width: int) -> ndarray:
+    '''Analyzes damage detections alongside trigger detections to rate and score the
+    occurances of damage in the sample.
 
-        '''S = librosa.feature.melspectrogram(y=raw_data.audio_data, sr=raw_data.sample_rate, 
-                                           n_mels=128, fmax=8000)
-        
-        fig, ax = plt.subplots()
-        S_dB = librosa.power_to_db(S, ref=np.max)
-        img = librosa.display.specshow(S_dB, x_axis='time',
-                                y_axis='mel', sr=raw_data.sample_rate,
-                                fmax=8000, ax=ax)
-        fig.colorbar(img, ax=ax, format='%+2.0f dB')
-        ax.set(title='Mel-frequency spectrogram')'''
-        
+    Both arrays must be the same size.
+
+    Damage is classified as follows:
+
+    Class 0: No damage detected AND trigger is in 'off' state
+    Class 1: Trigger is in 'on' state AND no damage is detected 
+    Class 2: Damage is detected while the trigger is 'on' but ceases once the
+    trigger returns to the 'off' state
+    Class 3: Damage is detected while the trigger is 'on' and persists for 5
+    seconds or less beyond the point when trigger transitions to 'off'
+    Class 4: Damage is detected while the trigger is 'on' and persists for 
+    longer than 5 seconds beyond the point when trigger transitions to 'off'
     
-    def _process(self, data_components):
-        return
+    Parameters
+    ----------
+    dmg_detections: ndarray
+        An array representing damage occurances on a per-frame basis. A 1 indicates damage
+        found to be present within that frame, a 0 indicates the opposite.
+    trigger_detections: ndarray
+        An array representing detections of a trigger signal on a per-frame basis. 1 indicates
+        signal-active, 0 indicates signal-inactive
+    frame_width: int
+        The width of a frame in ms
+
+    Return
+    ------
+    damage_score: ndarray
+        An array which contains the damage rating/score for each frame in the input sample. Values
+        in this array may be 0-4 indicating the class of damage present in each frame. 
+
+    '''
+    pass
     
+
 def main():
-    
-    file_path = 'audio_data\drill_motor\Drill_1_Speed_Close_To_Far.wav'
-    amplitude, sample_rate = librosa.load(file_path)
-    package = DmgData
-    package.audio_data = amplitude
-    package.sample_rate = sample_rate
-
-    visualize_audio(package)
-
-    '''trimmed_amplitude, _ = librosa.effects.trim(amplitude)
-    librosa.display.waveshow(trimmed_amplitude, sr=sample_rate)
-    plt.show()'''
-
-def visualize_audio(raw_data: DmgData):
-    """Helper function to visualize an audio signal in the time and frequency domain."""
-
-    sample_rate = raw_data.sample_rate
-    audio_data = raw_data.audio_data
-
-    # Check the properties of the audio file
-    print("Sample Rate:", sample_rate)
-    print("Audio Data Shape:", audio_data.shape)
-
-    # Calculate the Fast Fourier Transform (FFT) of the audio data
-    fft_result = np.fft.fft(audio_data)
-    fft_result = np.abs(fft_result)  # Take the absolute value to get magnitude
-
-    # Calculate the frequency values corresponding to the FFT result
-    num_samples = len(fft_result)
-    frequencies = np.fft.fftfreq(num_samples, 1.0 / sample_rate)
-
-    # Create subplots to display both the time-domain and frequency-domain graphs
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
-
-    # Plot the time-domain waveform
-    ax1.plot(np.arange(len(audio_data)) / sample_rate, audio_data)
-    ax1.set_title("Time-Domain Waveform")
-    ax1.set_xlabel("Time (s)")
-    ax1.set_ylabel("Amplitude")
-
-    # Plot the frequency content
-    ax2.plot(frequencies, fft_result)
-    ax2.set_title("Frequency Content")
-    ax2.set_xlabel("Frequency (Hz)")
-    ax2.set_ylabel("Magnitude")
-    ax2.grid(True)
-    ax2.set_xlim(0, sample_rate / 2)  # Display positive frequencies (up to Nyquist)
-
-    # Adjust spacing between subplots
-    plt.tight_layout()
-
-    plt.show()
+    pass
 
 if __name__ == '__main__':
     main()
