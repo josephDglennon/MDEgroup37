@@ -1,20 +1,22 @@
 import sqlite3
 import os
 import datetime
+import dmg_assessment as dmg
+import numpy
+import csv
 
 from dataclasses import dataclass, field
-import dmg_assessment as dmg
 from numpy import ndarray
 
 
 @dataclass
 class DmgData:
     """Data class for serving test data between modules"""
-    sample_rate: int = field(init=False)
-    audio_data: ndarray = field(init=False)
-    trigger_data: ndarray = field(init=False)
-    output_data: ndarray = field(init=False)
-    ard_samplerate: int = field(init=False)
+    sample_rate: int = None
+    audio_data: ndarray = None
+    trigger_data: ndarray = None
+    output_data: ndarray = None
+    is_processed: bool = False
 
 
 @dataclass
@@ -35,9 +37,9 @@ class TestEntry:
     creation_date: str
         String representation of the date and timestamp generated when this test 
         was first saved.
-    data_file: str
+    data_file_path: str
         Path to file in which test data is saved 
-    recording_sample: DataSample
+    data: DmgData
         Recorded audio and trigger data
     """
 
@@ -131,6 +133,7 @@ class DatabaseManager:
             test_entry.id = test_id
 
             new_path = test_entry.name + '_' + test_entry.creation_date.strftime("%m%d%Y") + '.dmg'
+            test_entry.data_file_path = new_path
             _save_test_data_to_file(path=new_path,
                                     data=test_entry.data,)
             _update_tag_links(con, test_entry.id, test_entry.tags)
@@ -412,9 +415,67 @@ class DatabaseError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
+'''
+    sample_rate: int = field(init=False)
+    audio_data: ndarray = field(init=False)
+    trigger_data: ndarray = field(init=False)
+    output_data: ndarray = None
+'''
 
 def _save_test_data_to_file(path: str, data: DmgData):
-    pass
+    '''
+    samplerate,   is_processed
+    [samplerate], [is_processed]
+    audio,      trigger,      output
+    [audio[0]], [trigger[0]], [output[0]]
+    [...],      [...],        [...]
+    [audio[n]], [trigger[n]], [output[n]]
+    '''
+
+    if not data: return
+
+    # audio, trigger, output should have same samplerate
+
+    rows = []
+    rows.append(['samplerate','is_processed'])
+    rows.append([data.sample_rate, data.is_processed])
+    rows.append(['audio','trigger','output'])
+
+    for i in range(0, len(data.audio_data)):
+
+        row = []
+
+        # audio data
+        if data.audio_data is None:
+            row.append('0')
+        else:
+            audio_column = ''
+            for column in data.audio_data[i]:
+                audio_column += (str(column) + ',')
+            audio_column = audio_column[:-1]
+            row.append(audio_column)
+
+        # trigger data
+        if data.trigger_data is None:
+            row.append(0)
+        else:
+            row.append(data.trigger_data[i])
+
+        # output data 
+        if data.output_data is None:
+            row.append(0)
+        else:
+            row.append(data.output_data[i])
+
+        rows.append(row)
+
+    print('\ntest data dump: ')
+    print(path)
+    count = 0
+    for row in rows:
+        print(row)
+        count += 1
+        if count == 25: break
 
 
 def _read_data_from_file(path: str) -> DmgData:

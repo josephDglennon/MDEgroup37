@@ -69,12 +69,10 @@ class HardwareInput():
         self._is_recording = False
         self._audio_blocks = []
         self._highlow_values = []
-        self._arduino_thread = None
         self._samplerate = None
-        self._ard_samplerate = None
-        self.start_time = 5
-        self.stop_time = 10
-        self.elapsed_time = 0
+        self.start_time = None
+        self.stop_time = None
+        self.elapsed_time = None
 
         try:
             self.analog_reader_thread = AnalogReaderThread('COM4')

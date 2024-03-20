@@ -372,7 +372,12 @@ class SampleRecordingFrame(CTkFrame):
         self.timer_thread = None
         self.rec_hardware = HardwareInput()
         self.is_recording = False
+        self.is_playing = False
         self.time_started_recording = None
+        self.time_started_playback = None
+        self.recording_duration = None
+        self.recording_length_string = '00:00:00'
+        self.recording_cursor_position_string = '00:00:00'
 
         _exit_processes.append(self.rec_hardware.stop_recording)
         _exit_processes.append(self.stop_button_handler)
@@ -407,12 +412,32 @@ class SampleRecordingFrame(CTkFrame):
         hours, rem = divmod(elapsed_time, 3600)
         minutes, seconds = divmod(rem, 60)
 
-        time_string = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes), seconds)
-        self.sample_cursor_time.configure(text='00:00:00 / ' + time_string)
+        self.recording_length_string = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes), seconds)
+        self.sample_cursor_time.configure(text='00:00:00 / ' + self.recording_length_string)
 
         if self.is_recording:
-            self.timer_thread = threading.Timer(.05, self.update_recording_timer)
-            self.timer_thread.start()
+            threading.Timer(.05, self.update_recording_timer).start()
+
+        else:
+            self.recording_duration = elapsed_time
+
+    def update_playback_timer(self):
+
+        elapsed_time = time.time() - self.time_started_playback
+        hours, rem = divmod(elapsed_time, 3600)
+        minutes, seconds = divmod(rem, 60)
+
+        if (elapsed_time < self.recording_duration) and (self.is_playing):
+            self.recording_cursor_position_string = "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
+            self.sample_cursor_time.configure(text=self.recording_cursor_position_string + ' / ' + self.recording_length_string)
+            threading.Timer(.05, self.update_playback_timer).start()
+
+        elif not self.is_playing: 
+            pass
+        
+        else:
+            self.is_playing = False
+            self.sample_cursor_time.configure(text=self.recording_length_string + ' / ' + self.recording_length_string)
 
     def record_button_handler(self):
 
@@ -432,21 +457,35 @@ class SampleRecordingFrame(CTkFrame):
 
     def play_button_handler(self):
 
-        data = self.rec_hardware.get_data()
+        if not db_manager._active_test.data: return
+        data = db_manager._active_test.data
         sounddevice.play(data.audio_data, data.sample_rate)
+
+        # start timer
+        self.is_playing = True
+        self.time_started_playback = time.time()
+        self.update_playback_timer()
 
     def stop_button_handler(self):
 
-        print('stop button')
-
         # toggle recording flag and re-enable play button
         self.is_recording = False
+        self.is_playing = False
         self.play_button.configure(state='normal')
 
         # stop audio playback if in progress
         sounddevice.stop()
 
+        # stop recording
         self.rec_hardware.stop_recording()
+
+        # capture data
+        try:
+            db_manager._active_test.data = self.rec_hardware.get_data()
+        except:
+            # exception due to no data existing.
+            # nothing need be done here besides catching the exception.
+            pass 
 
 
 class OutputSummaryFrame(CTkFrame):
