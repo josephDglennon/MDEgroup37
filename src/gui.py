@@ -7,6 +7,7 @@ import logging
 import datetime
 import threading
 import time
+import dmg_assessment as dmg
 
 from hardware_input import HardwareInput
 from database_manager import TestEntry
@@ -22,7 +23,9 @@ from customtkinter import (
     CTkScrollableFrame,
     CTkCheckBox,
     CTkProgressBar,
-    CTkToplevel
+    CTkToplevel,
+    CTkSegmentedButton,
+    CTkComboBox
 )
 
 # App sizing
@@ -324,7 +327,7 @@ class EditTestContextFrame(CTkFrame):
             pass # prevents multiple prompts from spawning
 
     def save_button_handler(self):
-        # update active test data entry with data present in the edit form
+        '''Update active test data entry with data present in the edit form.'''
 
         # notes
         db_manager._active_test.notes = self.test_notes_box.get("1.0",'end-1c')
@@ -1019,11 +1022,108 @@ class SettingsContextFrame(CTkFrame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
+
         # header label
         self.header_label = CTkLabel(self,
                                      text="Settings",
                                      font=CTkFont(size=20, weight="bold"))
         self.header_label.grid(row=0, column=0, padx=20, pady=20, sticky='nsw')
+
+        # scroll container
+        settings_scroll_container = CTkScrollableFrame(self, fg_color=BACKGROUND_COLOR)
+        settings_scroll_container.grid_columnconfigure(0, weight=1)
+        settings_scroll_container.grid(row=1, column=0, padx=5, pady=5, sticky='nsew')
+
+
+        # process mode
+        process_mode_set = SingleSettingContainer(settings_scroll_container, setting_name='Process Mode')
+        process_mode_set.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+        process_mode_selector = CTkSegmentedButton(process_mode_set, values=['ANALYTICAL', 'MACHINE_LEARNING'],
+                                                   command=self.process_mode_selector_handler)
+        process_mode_selector.set('ANALYTICAL')
+        process_mode_selector.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+
+        # audio recording device
+        audio_device_set = SingleSettingContainer(settings_scroll_container, setting_name='Audio Recording Device')
+        audio_device_set.grid_columnconfigure(0, weight=0)
+        audio_device_set.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+        audio_device_selector = CTkComboBox(audio_device_set, values=['Device1', 'Device2', 'Device3'],
+                                            command=self.audio_device_selector_handler)
+        audio_device_selector.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+        refresh_devices_button = CTkButton(audio_device_set, text='\u27F3',
+                                           fg_color=BACKGROUND_COLOR,
+                                           hover_color=BACKGROUND_COLOR_HIGHLIGHTED,
+                                           command=self.refresh_devices_button_handler,
+                                           width=20,
+                                           font=CTkFont(size=20, weight="bold"))
+        refresh_devices_button.grid(row=1, column=1, padx=0, pady=10, sticky='nsw')
+
+        # trigger recording device
+        trigger_device_set = SingleSettingContainer(settings_scroll_container,
+                                                    setting_name='Trigger Recording Device COM Port')
+        trigger_device_set.grid(row=2, column=0, padx=10, pady=10, sticky='nsew')
+        self.trigger_port_entry = CTkEntry(trigger_device_set, width=400, corner_radius=0)
+        self.trigger_port_entry.grid(row=1, column=0, padx=10, pady=10, sticky='nsw')
+        self.update_trigger_port_button = CTkButton(trigger_device_set, text='Update',
+                                                    command=self.update_trigger_port_button_handler)
+        self.update_trigger_port_button.grid(row=2, column=0, padx=10, pady=10, sticky='nsw')
+
+        # save paths
+        save_paths_set = SingleSettingContainer(settings_scroll_container, setting_name='Save Location')
+        save_paths_set.grid_columnconfigure(0, weight=0)
+        save_paths_set.grid(row=3, column=0, padx=10, pady=10, sticky='nsew')
+        self.save_path_entry = CTkEntry(save_paths_set, width=400, corner_radius=0)
+        self.save_path_entry.grid(row=1, column=0, padx=10, pady=10, sticky='nsw')
+        browse_button = CTkButton(save_paths_set, text='...',
+                                           fg_color=BACKGROUND_COLOR,
+                                           hover_color=BACKGROUND_COLOR_HIGHLIGHTED,
+                                           command=self.browse_path_button_handler,
+                                           width=20,
+                                           font=CTkFont(size=20, weight="bold"))
+        browse_button.grid(row=1, column=1, padx=0, pady=10, sticky='nsw')
+        update_path_button = CTkButton(save_paths_set, text='Update',
+                                       command=self.update_path_button_handler)
+        update_path_button.grid(row=2, column=0, padx=10, pady=10, sticky='nsw')
+
+    def process_mode_selector_handler(self, value):
+        
+        if value == 'ANALYTICAL':
+            dmg._process_mode = 'ANALYTICAL'
+
+        elif value == 'MACHINE_LEARNING':
+            dmg._process_mode = 'MACHINE_LEARNING'
+
+        else:
+            print('WTF?')
+
+    def audio_device_selector_handler(self, value):
+        pass
+
+    def refresh_devices_button_handler(self):
+        pass
+
+    def update_trigger_port_button_handler(self):
+        pass
+
+    def browse_path_button_handler(self):
+        pass
+
+    def update_path_button_handler(self):
+        pass
+
+class SingleSettingContainer(CTkFrame):
+    def __init__(self, parent, controller=None, setting_name=None):
+        super().__init__(parent, fg_color=ITEM_COLOR, border_color=ITEM_BORDER_COLOR)
+
+        self.grid_columnconfigure(0, weight=1)
+
+        setting_name_label = CTkLabel(self, text=setting_name,
+                                      font=CTkFont(size=16, weight="bold"))
+        setting_name_label.grid(row=0, column=0, padx=10, pady=10, sticky='nsw')
+
 
 
 class SpawnPromptError(Exception):

@@ -78,7 +78,7 @@ class HardwareInput():
             self.analog_reader_thread = AnalogReaderThread('COM4')
 
         except AnalogReaderThread.AnalogReaderException as e:
-            print(e)
+            #print(e)
             self.analog_reader_thread = None
 
         def audio_callback(indata, frames, time, status):

@@ -147,6 +147,9 @@ class DatabaseManager:
                          notes=test_entry.notes)
             
             # overrite data in file
+            if test_entry.data_file_path == None:
+                new_path = test_entry.name + '_' + test_entry.creation_date.strftime("%m%d%Y") + '.dmg'
+                test_entry.data_file_path = new_path
             _save_test_data_to_file(path=test_entry.data_file_path,
                                     data=test_entry.data)
             
@@ -397,6 +400,9 @@ def configure(files_location=dmg._files_location,
     if not os.path.isdir(database_file_path):
         os.makedirs(database_file_path)
 
+    if not os.path.isdir(files_location):
+        os.makedirs(files_location)
+
     # establish database at specified location
     db_file = os.path.join(database_file_path, database_file_name)
     if not os.path.isfile(db_file):
@@ -437,8 +443,9 @@ def _save_test_data_to_file(path: str, data: DmgData):
     # audio, trigger, output should have same samplerate
 
     rows = []
-    rows.append(['samplerate','is_processed'])
-    rows.append([data.sample_rate, data.is_processed])
+    rows.append(['samplerate','is_processed', 'audio_channels'])
+    num_channels = len(data.audio_data[0])
+    rows.append([data.sample_rate, data.is_processed, num_channels])
     rows.append(['audio','trigger','output'])
 
     for i in range(0, len(data.audio_data)):
@@ -469,6 +476,7 @@ def _save_test_data_to_file(path: str, data: DmgData):
 
         rows.append(row)
 
+    '''
     print('\ntest data dump: ')
     print(path)
     count = 0
@@ -476,6 +484,13 @@ def _save_test_data_to_file(path: str, data: DmgData):
         print(row)
         count += 1
         if count == 25: break
+    '''
+
+    absolute_path = os.path.join(dmg._files_location, path)
+
+    with open(absolute_path, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile, delimiter='|')
+        csv_writer.writerows(rows)
 
 
 def _read_data_from_file(path: str) -> DmgData:
