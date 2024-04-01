@@ -51,13 +51,15 @@ def test_create_test():
 
     now_date = datetime.datetime.now()
 
-    test_id = db._create_test(con,
+    test_id, data_file_path = db._create_test(con,
                               name='Name1',
                               creation_date=now_date,
-                              notes='Notes1',
-                              data_file_path='path/to/file1')
+                              notes='Notes1')
+    
+    path = 'Name1' + '_' + now_date.strftime("%m%d%Y") + '.dmg'
     
     assert test_id == 1
+    assert path == data_file_path
 
     sql = """
              SELECT *
@@ -66,7 +68,7 @@ def test_create_test():
           """
     test_row = cur.execute(sql).fetchone()
 
-    assert test_row == (1, 'Name1', now_date, 'Notes1', 'path/to/file1')
+    assert test_row == (1, 'Name1', now_date, 'Notes1', path)
 
     con.close()
     os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
@@ -116,6 +118,21 @@ def test_create_tag_link():
     assert (1,) in tag_links
     assert (2,) in tag_links
     assert (3,) in tag_links
+
+    con.close()
+    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+
+
+def test_read_data_file_path_by_id():
+    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    con = db._connect()
+    cur = con.cursor()
+
+    time_stamp = datetime.datetime.now()
+    db._create_test(con, 'test1', time_stamp, 'notes1')
+
+    filepath = db._read_data_file_path_by_id(con, 1)
+    assert filepath == 'test1' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'
 
     con.close()
     os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
@@ -216,9 +233,9 @@ def test_read_test_id_by_name():
     con = db._connect()
     cur = con.cursor()
 
-    db._create_test(con, 'test1', datetime.datetime.now(), '', '')
-    db._create_test(con, 'test2', datetime.datetime.now(), '', '')
-    db._create_test(con, 'test3', datetime.datetime.now(), '', '')
+    db._create_test(con, 'test1', datetime.datetime.now(), '')
+    db._create_test(con, 'test2', datetime.datetime.now(), '')
+    db._create_test(con, 'test3', datetime.datetime.now(), '')
 
     assert db._read_test_id_by_name(con, '') == None
     assert db._read_test_id_by_name(con, 'test0') == None
@@ -239,14 +256,14 @@ def test_read_test_by_id():
     time_stamp = datetime.datetime.now()
 
     test_values = [
-        (1, 'test1', time_stamp, 'notes1', 'file1'),
-        (2, 'test2', time_stamp, 'notes2', 'file2'),
-        (3, 'test3', time_stamp, 'notes3', 'file3'),
-        (4, 'test4', time_stamp, 'notes4', 'file4')
+        (1, 'test1', time_stamp, 'notes1', 'test1' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'),
+        (2, 'test2', time_stamp, 'notes2', 'test2' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'),
+        (3, 'test3', time_stamp, 'notes3', 'test3' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'),
+        (4, 'test4', time_stamp, 'notes4', 'test4' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg')
     ]
 
     for value in test_values:
-        db._create_test(con, value[1], value[2], value[3], value[4])
+        db._create_test(con, value[1], value[2], value[3])
 
     for id in range(1, 5):
         test = db._read_test_by_id(con, id)
@@ -302,10 +319,10 @@ def test_read_all_test_ids():
     con = db._connect()
     cur = con.cursor()
 
-    db._create_test(con, 'test1', datetime.datetime.now(), 'notes1', 'path1')
-    db._create_test(con, 'test2', datetime.datetime.now(), 'notes2', 'path2')
-    db._create_test(con, 'test3', datetime.datetime.now(), 'notes3', 'path3')
-    db._create_test(con, 'test4', datetime.datetime.now(), 'notes4', 'path4')
+    db._create_test(con, 'test1', datetime.datetime.now(), 'notes1')
+    db._create_test(con, 'test2', datetime.datetime.now(), 'notes2')
+    db._create_test(con, 'test3', datetime.datetime.now(), 'notes3')
+    db._create_test(con, 'test4', datetime.datetime.now(), 'notes4')
 
     existing_tests = db._read_all_test_ids(con)
     assert len(existing_tests) == 4
@@ -333,14 +350,14 @@ def test_update_test_by_name():
     cur = con.cursor()
 
     time_stamp = datetime.datetime.now()
-    db._create_test(con, 'test1', time_stamp, 'original notes', 'path1')
+    db._create_test(con, 'test1', time_stamp, 'original notes')
 
     test = db._read_test_by_id(con, 1)
     assert test[0] == 1
     assert test[1] == 'test1'
     assert test[2] == time_stamp
     assert test[3] == 'original notes'
-    assert test[4] == 'path1'
+    assert test[4] == 'test1' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'
 
     db._update_test_by_name(con, 'test1', 'updated notes')
 
@@ -349,7 +366,7 @@ def test_update_test_by_name():
     assert test[1] == 'test1'
     assert test[2] == time_stamp
     assert test[3] == 'updated notes'
-    assert test[4] == 'path1'
+    assert test[4] == 'test1' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'
 
     con.close()
     os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
@@ -429,9 +446,9 @@ def test_delete_test_by_id():
     con = db._connect()
     cur = con.cursor()
 
-    db._create_test(con, 'name1', datetime.datetime.now(), 'notes1', 'path1')
-    db._create_test(con, 'name2', datetime.datetime.now(), 'notes2', 'path2')
-    db._create_test(con, 'name3', datetime.datetime.now(), 'notes3', 'path3')
+    db._create_test(con, 'name1', datetime.datetime.now(), 'notes1')
+    db._create_test(con, 'name2', datetime.datetime.now(), 'notes2')
+    db._create_test(con, 'name3', datetime.datetime.now(), 'notes3')
 
     db._delete_test_by_id(con, 2)
 

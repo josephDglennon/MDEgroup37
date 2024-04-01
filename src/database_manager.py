@@ -125,16 +125,13 @@ class DatabaseManager:
 
         if existing_test == None:
             # insert if no test with matching name exists
-            test_id = _create_test(con,
+            test_id, data_file_path = _create_test(con,
                                    name=test_entry.name,
                                    creation_date=test_entry.creation_date,
-                                   notes=test_entry.notes,
-                                   data_file_path=test_entry.data_file_path)
+                                   notes=test_entry.notes)
             test_entry.id = test_id
 
-            new_path = test_entry.name + '_' + test_entry.creation_date.strftime("%m%d%Y") + '.dmg'
-            test_entry.data_file_path = new_path
-            _save_test_data_to_file(path=new_path,
+            _save_test_data_to_file(path=data_file_path,
                                     data=test_entry.data,)
             _update_tag_links(con, test_entry.id, test_entry.tags)
 
@@ -147,9 +144,6 @@ class DatabaseManager:
                          notes=test_entry.notes)
             
             # overrite data in file
-            if test_entry.data_file_path == None:
-                new_path = test_entry.name + '_' + test_entry.creation_date.strftime("%m%d%Y") + '.dmg'
-                test_entry.data_file_path = new_path
             _save_test_data_to_file(path=test_entry.data_file_path,
                                     data=test_entry.data)
             
@@ -294,7 +288,31 @@ class DatabaseManager:
         test_entry.notes = test_row[3]
         test_entry.data_file_path = test_row[4]
         
-        test_entry.data = _read_data_from_file(test_entry.data_file_path)
+        test_entry.data = None#_read_data_from_file(test_entry.data_file_path) #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        linked_tag_ids = _read_linked_tag_ids_by_test_id(con, test_entry.id)
+
+        if linked_tag_ids:
+            test_entry.tags = []
+            for id in linked_tag_ids:
+                test_entry.tags.append(_read_tag_value_by_tag_id(con, id))
+
+        con.close()
+        return test_entry
+    
+    def _quick_load_test_by_id(self, id: int):
+
+        con = _connect()
+        test_row = _read_test_by_id(con, id)
+        if test_row == None: return None
+
+        test_entry = TestEntry()
+        test_entry.id = test_row[0]
+        test_entry.name = test_row[1]
+        test_entry.creation_date = test_row[2]
+        test_entry.notes = test_row[3]
+        test_entry.data_file_path = test_row[4]
+        
+        #test_entry.data = _read_data_from_file(test_entry.data_file_path)
         linked_tag_ids = _read_linked_tag_ids_by_test_id(con, test_entry.id)
 
         if linked_tag_ids:
@@ -429,87 +447,26 @@ class DatabaseError(Exception):
 '''
 
 def _save_test_data_to_file(path: str, data: DmgData):
-    '''
-    samplerate,   is_processed
-    [samplerate], [is_processed]
-    audio,      trigger,      output
-    [audio[0]], [trigger[0]], [output[0]]
-    [...],      [...],        [...]
-    [audio[n]], [trigger[n]], [output[n]]
-    '''
-
-    if not data: return
-
-    # audio, trigger, output should have same samplerate
-
-    rows = []
-    rows.append(['samplerate','is_processed', 'audio_channels'])
-    num_channels = len(data.audio_data[0])
-    rows.append([data.sample_rate, data.is_processed, num_channels])
-    rows.append(['audio','trigger','output'])
-
-    for i in range(0, len(data.audio_data)):
-
-        row = []
-
-        # audio data
-        if data.audio_data is None:
-            row.append('0')
-        else:
-            audio_column = ''
-            for column in data.audio_data[i]:
-                audio_column += (str(column) + ',')
-            audio_column = audio_column[:-1]
-            row.append(audio_column)
-
-        # trigger data
-        if data.trigger_data is None:
-            row.append(0)
-        else:
-            row.append(data.trigger_data[i])
-
-        # output data 
-        if data.output_data is None:
-            row.append(0)
-        else:
-            row.append(data.output_data[i])
-
-        rows.append(row)
-
-    '''
-    print('\ntest data dump: ')
-    print(path)
-    count = 0
-    for row in rows:
-        print(row)
-        count += 1
-        if count == 25: break
-    '''
-
-    absolute_path = os.path.join(dmg._files_location, path)
-
-    with open(absolute_path, 'w', newline='') as csvfile:
-        csv_writer = csv.writer(csvfile, delimiter='|')
-        csv_writer.writerows(rows)
+    pass
 
 
 def _read_data_from_file(path: str) -> DmgData:
-    return
-
+    pass
 
 # [CRUD]
              
 def _create_test(con: sqlite3.Connection,
                  name: str,
                  creation_date: datetime.datetime,
-                 notes: str,
-                 data_file_path: str) -> int:
+                 notes: str) -> int:
     '''Simply inserts data to test table and returns the last row id.
     
     This function is not responsibile for determining whether or not there already
     exists a test with the specified name.
     '''
     
+    data_file_path = name + '_' + creation_date.strftime("%m%d%Y") + '.dmg'
+
     cur = con.cursor()
 
     sql = """
@@ -520,7 +477,7 @@ def _create_test(con: sqlite3.Connection,
     
     cur.execute(sql, (name, creation_date, notes, data_file_path))
     
-    return cur.lastrowid
+    return cur.lastrowid, data_file_path
 
 
 def _create_tag(con:sqlite3.Connection, value: str):
@@ -562,6 +519,18 @@ def _create_tag_link(con: sqlite3.Connection, test_id, tag_id):
              VALUES(?,?)
           """
     cur.execute(sql, (test_id, tag_id))
+
+
+def _read_data_file_path_by_id(con: sqlite3.Connection, id: int):
+    cur = con.cursor()
+    sql = """
+             SELECT data_file_path
+             FROM test
+             WHERE id=?
+          """
+    path = cur.execute(sql, (id,)).fetchone()
+    if path == None: return None
+    return path[0]
 
 
 def _read_linked_tag_ids_by_test_id(con: sqlite3.Connection, id: int):
@@ -681,10 +650,11 @@ def _read_all_test_ids(con: sqlite3.Connection):
 
 def _update_test_by_name(con: sqlite3.Connection,
                          name: str,
-                         notes: str):
+                         notes: str,
+                         data_file_path: str = None):
     '''Update the existing data for the test with the specified name.
     
-    The name, creation_date, and file_path are set upon creation and are
+    The name and creation_date are set upon creation and are
     not editable.
     '''
     
