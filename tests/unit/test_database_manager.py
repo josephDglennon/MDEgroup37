@@ -2,12 +2,14 @@ import pytest
 import os
 import datetime
 import sys
+import taglib
 
 sys.path.append('src')
 import database_manager as db
 import hardware_input as hi
-
+import numpy as np
 from numpy import ndarray
+from database_manager import DmgData
 
 
 TEST_FOLDER = os.path.dirname(__file__)
@@ -42,6 +44,45 @@ def test_initialize_db():
     con.close()
     os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
 
+def test_save_test_data_to_file():
+    db.configure(files_location=TEST_DB_FILE_PATH)
+    data = DmgData()
+    data.audio_data = np.ones((10,3))
+    data.trigger_data = np.zeros((10,1))
+    data.output_data = np.ones((10,1))
+    data.sample_rate = 100
+    data.is_processed = True
+    
+    path = os.path.join(TEST_DB_FILE_PATH, 'test_wav.wav')
+    db._save_test_data_to_file(path, data)
+
+    with taglib.File(path) as file:
+        assert file.tags['CHANNELS'][0] == '3'
+    os.remove(path)
+
+def test_read_test_data_from_file():
+    db.configure(files_location=TEST_DB_FILE_PATH)
+    data = DmgData()
+    data.audio_data = np.ones((10,3))
+    data.trigger_data = np.zeros((10,1))
+    data.output_data = np.ones((10,1))
+    data.sample_rate = 100
+    data.is_processed = True
+    
+    path = os.path.join(TEST_DB_FILE_PATH, 'test_wav.wav')
+    db._save_test_data_to_file(path, data)
+    new_data = db._read_test_data_from_file(path)
+    os.remove(path)
+
+    print(new_data.audio_data)
+    print(new_data.trigger_data)
+    print(new_data.output_data)
+
+    #assert new_data.audio_data == data.audio_data
+    #assert new_data.trigger_data == data.trigger_data
+    #assert new_data.output_data == data.output_data
+    #assert new_data.sample_rate == data.sample_rate
+    #assert new_data.is_processed == data.is_processed
 
 def test_create_test():
 

@@ -3,8 +3,9 @@ import os
 import datetime
 import dmg_assessment as dmg
 import numpy
-import csv
+import taglib
 
+from scipy.io import wavfile
 from dataclasses import dataclass, field
 from numpy import ndarray
 
@@ -288,7 +289,7 @@ class DatabaseManager:
         test_entry.notes = test_row[3]
         test_entry.data_file_path = test_row[4]
         
-        test_entry.data = None#_read_data_from_file(test_entry.data_file_path) #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        test_entry.data = _read_test_data_from_file(test_entry.data_file_path) #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         linked_tag_ids = _read_linked_tag_ids_by_test_id(con, test_entry.id)
 
         if linked_tag_ids:
@@ -447,11 +448,86 @@ class DatabaseError(Exception):
 '''
 
 def _save_test_data_to_file(path: str, data: DmgData):
-    pass
+    '''Save the provided data to a .wav file with the name provided by 'path'.
+
+    The .wav file contains channels for audio, trigger, and output data. The audio
+    can be comprised of multiple channels and it should be indicated via meta tags
+    how many channels are present in the file.
+
+    To indicate whether or not a sample has been processed and contains an output
+    channel, a meta tag is added to designate a file 'processed'
+    ''' 
+    
+    # --------------------------------------------------------------------------------------- TEMPORARY
+    if (data.trigger_data is not ndarray):
+        data.trigger_data = numpy.zeros((len(data.audio_data),1)) # zero-filled test array
+
+    # check if audio and trigger data is present 
+    if (data.audio_data is not None) and (data.trigger_data is not None):
+
+        # determine number of audio channels
+        num_audio_channels = len(data.audio_data[0])
+
+        # confirm audio and trigger have the same length
+        assert len(data.audio_data) == len(data.trigger_data), 'audio and trigger array size mismatch'
+
+        # combine all data channels into single 'n x channel' array
+        wav_channels = numpy.hstack((data.audio_data, data.trigger_data))
+        if data.is_processed:
+            assert data.output_data is not None
+            # add output channel if exists
+            wav_channels = numpy.hstack((wav_channels, data.output_data))
+
+        # pack wav_channels into a .wav file
+        full_path = os.path.join(dmg._files_location, path)
+        wavfile.write(full_path, data.sample_rate, wav_channels)
+
+        # edit meta_tags of the file
+        with taglib.File(full_path, save_on_exit = True) as save_file:
+            save_file.tags['CHANNELS'] = [str(num_audio_channels)]
+            save_file.tags['PROCESSED'] = [str(data.is_processed)]
 
 
-def _read_data_from_file(path: str) -> DmgData:
-    pass
+    else: 
+        print('save fail')
+        print('audio\n' + str(data.audio_data) + '\n' + str(data.audio_data.shape))
+        print('trigger\n' + str(data.trigger_data)+ '\n' + str(data.trigger_data.shape))
+        #assert data.audio_data is ndarray, 'audio is not ndarray'
+        #assert data.trigger_data is ndarray, 'trigger is not ndarray'
+
+
+def _read_test_data_from_file(path: str) -> DmgData:
+    
+    # audio - trigger - output 
+    
+    # check file exists
+    full_path = os.path.join(dmg._files_location, path)
+    if not os.path.isfile(full_path): return None
+
+    # extract meta data and wav data from file
+    num_channels = 0
+    data = DmgData()
+    data.sample_rate, wav_channels = wavfile.read(full_path)
+
+    with taglib.File(full_path, save_on_exit = True) as save_file:
+        num_channels = int(save_file.tags["CHANNELS"][0])
+        is_processed = save_file.tags["PROCESSED"][0]
+        if is_processed == 'True': data.is_processed = True
+        elif is_processed == 'False': data.is_processed = False
+        else: raise Exception('Something really bad just happend. (Read file)')
+
+    # separate channels in wav_data
+    data.audio_data = wav_channels[:, 0:(num_channels)]
+    data.trigger_data = wav_channels[:, num_channels]
+    if data.is_processed:
+        data.output_data = wav_channels[:, (num_channels+1)]
+
+    #print(data.audio_data)
+    #print(data.audio_data.shape)
+    #print(data.trigger_data)
+    #print(data.output_data)
+
+    return data
 
 # [CRUD]
              

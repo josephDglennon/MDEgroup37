@@ -339,14 +339,8 @@ class EditTestContextFrame(CTkFrame):
         # active tags
         db_manager._active_test.tags = self.tag_select_frame.get_selected_tag_values()
 
-        # data files
-
         # save data entry to database
         db_manager.save_active_test_data()
-
-        # test jank
-        print(self.tag_select_frame.get_selected_tag_values())
-        pass
 
     def cancel_button_handler(self):
 
@@ -497,11 +491,11 @@ class SampleRecordingFrame(CTkFrame):
     def update(self, data):
 
         if (not data) or (data.audio_data is None) or (not data.sample_rate):
-            print('no data')
+            print('<recording> no data')
             return
 
         else:
-            print('loading data')
+            print('<recording> loading data')
             self.recording_duration = float(len(data.audio_data) / data.sample_rate)
             hours, rem = divmod(self.recording_duration, 3600)
             minutes, seconds = divmod(rem, 60)
