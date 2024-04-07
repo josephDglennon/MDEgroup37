@@ -1,9 +1,9 @@
 import sqlite3
 import os
 import datetime
-import dmg_assessment as dmg
 import numpy
 import taglib
+import settings
 
 from scipy.io import wavfile
 from dataclasses import dataclass, field
@@ -103,12 +103,9 @@ class DatabaseManager:
         return self._active_test
 
     def save_active_test_data(self):
-        '''Handles the insertion of new test entries as well as updating of existing
-        entries.
+        '''Creates a new test entry in memory or updates an existing one.
         
-        Does not allow multiple tests with the same name to be created. Tests with
-        the same name will be overwritten with the latest data.
-        
+
         '''
 
         con = _connect()
@@ -132,8 +129,9 @@ class DatabaseManager:
                                    notes=test_entry.notes)
             test_entry.id = test_id
 
-            _save_test_data_to_file(path=data_file_path,
-                                    data=test_entry.data,)
+            if test_entry.data:
+                _save_test_data_to_file(path=data_file_path,
+                                        data=test_entry.data,)
             _update_tag_links(con, test_entry.id, test_entry.tags)
 
         else:
@@ -145,8 +143,9 @@ class DatabaseManager:
                          notes=test_entry.notes)
             
             # overrite data in file
-            _save_test_data_to_file(path=test_entry.data_file_path,
-                                    data=test_entry.data)
+            if test_entry.data:
+                _save_test_data_to_file(path=test_entry.data_file_path,
+                                        data=test_entry.data)
             
             _update_tag_links(con, test_entry.id, test_entry.tags)
 
@@ -154,6 +153,7 @@ class DatabaseManager:
         con.close()
 
     def delete_active_test_entry(self):
+        '''Deletes only the test entry currently loaded in the DatabaseManager'''
         
         con = _connect()
 
@@ -169,8 +169,8 @@ class DatabaseManager:
         con.commit()
         con.close()
 
-
     def delete_test_entry_by_name(self, name: str):
+        '''Deletes the specific entry in storage specified'''
         
         con = _connect()
 
@@ -179,7 +179,6 @@ class DatabaseManager:
 
         con.commit()
         con.close()
-
 
     def discard_active_entry(self):
         self._active_test = None
@@ -289,7 +288,7 @@ class DatabaseManager:
         test_entry.notes = test_row[3]
         test_entry.data_file_path = test_row[4]
         
-        test_entry.data = _read_test_data_from_file(test_entry.data_file_path) #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        test_entry.data = _read_test_data_from_file(test_entry.data_file_path)
         linked_tag_ids = _read_linked_tag_ids_by_test_id(con, test_entry.id)
 
         if linked_tag_ids:
@@ -330,6 +329,8 @@ class DatabaseManager:
 
         if (test_id != None):
 
+            test_info = _read_test_by_id(con, test_id)
+
             # delete the test meta data from database
             _delete_test_by_id(con, test_id)
 
@@ -337,6 +338,10 @@ class DatabaseManager:
             _delete_tag_links_by_test_id(con, test_id)
 
             # delete relevant test files
+            path = test_info[4]
+
+            files_location = os.path.join(settings.get_setting('save_location'), 'files')
+            os.remove(os.path.join(files_location, path))
  
         con.commit()
         con.close()
@@ -345,14 +350,16 @@ class DatabaseManager:
 def _connect() -> sqlite3.Connection:
     """Form connection to the database"""
 
-    conn = None
+    con = None
     try:
-        db_file = os.path.join(dmg._database_file_path, dmg._database_file_name)
+        db_file_location = os.path.join(settings.get_setting('save_location'), 'db')
+        db_file = os.path.join(db_file_location, settings.get_setting('database_file_name'))
         con = sqlite3.connect(db_file,
                                detect_types=sqlite3.PARSE_DECLTYPES |
                                             sqlite3.PARSE_COLNAMES)
         
     except Exception as e:
+        print('<_connect()> connection to database failed')
         print(e)
 
     return con
@@ -401,9 +408,8 @@ def _initialize_database_tables(con: sqlite3.Connection):
     con.commit()
 
 
-def configure(files_location=dmg._files_location,
-              database_file_path=dmg._database_file_path,
-              database_file_name=dmg._database_file_name):
+def configure(save_location=settings.get_setting('save_location'),
+              database_file_name=settings.get_setting('database_file_name')):
     '''Set up the database in the location indicated by DB_FOLDER_PATH.
     
     User may configure the database at a specified location other than
@@ -411,9 +417,11 @@ def configure(files_location=dmg._files_location,
     '''
 
     # update settings
-    dmg._files_location = files_location
-    dmg._database_file_path = database_file_path
-    dmg._database_file_name = database_file_name
+    settings.configure_setting('save_location', save_location)
+    settings.configure_setting('database_file_name', database_file_name)
+
+    database_file_path = os.path.join(save_location, 'db')
+    files_location = os.path.join(save_location, 'files')
 
     # create the specified directories
     if not os.path.isdir(database_file_path):
@@ -440,12 +448,6 @@ class DatabaseError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
-'''
-    sample_rate: int = field(init=False)
-    audio_data: ndarray = field(init=False)
-    trigger_data: ndarray = field(init=False)
-    output_data: ndarray = None
-'''
 
 def _save_test_data_to_file(path: str, data: DmgData):
     '''Save the provided data to a .wav file with the name provided by 'path'.
@@ -479,7 +481,8 @@ def _save_test_data_to_file(path: str, data: DmgData):
             wav_channels = numpy.hstack((wav_channels, data.output_data))
 
         # pack wav_channels into a .wav file
-        full_path = os.path.join(dmg._files_location, path)
+        files_location = os.path.join(settings.get_setting('save_location'), 'files')
+        full_path = os.path.join(files_location, path)
         wavfile.write(full_path, data.sample_rate, wav_channels)
 
         # edit meta_tags of the file
@@ -487,21 +490,20 @@ def _save_test_data_to_file(path: str, data: DmgData):
             save_file.tags['CHANNELS'] = [str(num_audio_channels)]
             save_file.tags['PROCESSED'] = [str(data.is_processed)]
 
-
     else: 
-        print('save fail')
-        print('audio\n' + str(data.audio_data) + '\n' + str(data.audio_data.shape))
-        print('trigger\n' + str(data.trigger_data)+ '\n' + str(data.trigger_data.shape))
-        #assert data.audio_data is ndarray, 'audio is not ndarray'
-        #assert data.trigger_data is ndarray, 'trigger is not ndarray'
+        print('<save_test_data_to_file> Error saving data.')
 
 
 def _read_test_data_from_file(path: str) -> DmgData:
+    '''Extract data from .dmg file and produce a DmgData object.
     
-    # audio - trigger - output 
+    Assumes the path to be within the dmg._files_location directory. The
+    provided path is appended to that variable.
+    '''
     
     # check file exists
-    full_path = os.path.join(dmg._files_location, path)
+    files_location = os.path.join(settings.get_setting('save_location'), 'files')
+    full_path = os.path.join(files_location, path)
     if not os.path.isfile(full_path): return None
 
     # extract meta data and wav data from file
@@ -516,16 +518,11 @@ def _read_test_data_from_file(path: str) -> DmgData:
         elif is_processed == 'False': data.is_processed = False
         else: raise Exception('Something really bad just happend. (Read file)')
 
-    # separate channels in wav_data
+    # separate channels from wav_data and insert in data object
     data.audio_data = wav_channels[:, 0:(num_channels)]
     data.trigger_data = wav_channels[:, num_channels]
     if data.is_processed:
         data.output_data = wav_channels[:, (num_channels+1)]
-
-    #print(data.audio_data)
-    #print(data.audio_data.shape)
-    #print(data.trigger_data)
-    #print(data.output_data)
 
     return data
 

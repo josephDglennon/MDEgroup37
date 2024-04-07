@@ -19,3 +19,4 @@ dependencies:
     - cffi==1.16.0
     - pyfirmata
     - pytaglib
+    - pyyaml

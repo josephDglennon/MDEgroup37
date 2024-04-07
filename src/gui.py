@@ -7,10 +7,12 @@ import logging
 import datetime
 import threading
 import time
-import dmg_assessment as dmg
+import settings
+from database_manager import DatabaseManager
 from typing import Callable, Tuple
 from hardware_input import HardwareInput
 from database_manager import TestEntry
+from tkinter import filedialog
 from customtkinter import (
     CTk,
     CTkFrame,
@@ -53,7 +55,7 @@ ITEM_BORDER_COLOR_SELECTED = 'grey40'
 customtkinter.set_appearance_mode("Dark")
 customtkinter.set_default_color_theme("blue")
 
-db_manager = db.DatabaseManager()
+db_manager = DatabaseManager()
 
 _exit_processes = list()
 
@@ -491,11 +493,11 @@ class SampleRecordingFrame(CTkFrame):
     def update(self, data):
 
         if (not data) or (data.audio_data is None) or (not data.sample_rate):
-            print('<recording> no data')
-            return
+            #print('<sample.recording_frame.update()> no data')
+            self.sample_cursor_time.configure(text=('00:00:00 / 00:00:00'))
 
         else:
-            print('<recording> loading data')
+            #print('<sample_recording_frame.update()> loading data')
             self.recording_duration = float(len(data.audio_data) / data.sample_rate)
             hours, rem = divmod(self.recording_duration, 3600)
             minutes, seconds = divmod(rem, 60)
@@ -1054,10 +1056,9 @@ class SettingsContextFrame(CTkFrame):
         # process mode
         process_mode_set = SingleSettingContainer(settings_scroll_container, setting_name='Process Mode')
         process_mode_set.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
-        process_mode_selector = CTkSegmentedButton(process_mode_set, values=['ANALYTICAL', 'MACHINE_LEARNING'],
+        self.process_mode_selector = CTkSegmentedButton(process_mode_set, values=['ANALYTICAL', 'MACHINE_LEARNING'],
                                                    command=self.process_mode_selector_handler)
-        process_mode_selector.set('ANALYTICAL')
-        process_mode_selector.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+        self.process_mode_selector.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
 
         # audio recording device
         audio_device_set = SingleSettingContainer(settings_scroll_container, setting_name='Audio Recording Device')
@@ -1101,31 +1102,45 @@ class SettingsContextFrame(CTkFrame):
                                        command=self.update_path_button_handler)
         update_path_button.grid(row=2, column=0, padx=10, pady=10, sticky='nsw')
 
+        self.update_settings_state()
+
+    def update_settings_state(self):
+        self.process_mode_selector.set(settings.get_setting('process_mode'))
+        self.trigger_port_entry.delete(0, 'end')
+        self.trigger_port_entry.insert(0, settings.get_setting('trigger_port'))
+        self.save_path_entry.delete(0, 'end')
+        self.save_path_entry.insert(0, settings.get_setting('save_location'))
+
     def process_mode_selector_handler(self, value):
         
         if value == 'ANALYTICAL':
-            dmg._process_mode = 'ANALYTICAL'
+            settings.configure_setting('process_mode', value)
 
         elif value == 'MACHINE_LEARNING':
-            dmg._process_mode = 'MACHINE_LEARNING'
+            settings.configure_setting('process_mode', value)
 
         else:
             print('WTF?')
 
     def audio_device_selector_handler(self, value):
-        pass
+        settings.configure_setting('active_device', value)
 
     def refresh_devices_button_handler(self):
         pass
 
     def update_trigger_port_button_handler(self):
-        pass
+        trigger_port = self.trigger_port_entry.get()
+        settings.configure_setting('trigger_port', trigger_port)
 
     def browse_path_button_handler(self):
-        pass
+        save_path = filedialog.askdirectory(initialdir=settings.get_setting('save_location'))
+        self.save_path_entry.delete(0, 'end')
+        self.save_path_entry.insert(0, save_path)
 
     def update_path_button_handler(self):
-        pass
+        save_path = self.save_path_entry.get()
+        settings.configure_setting('save_location', save_path)
+        db.configure(save_location=settings.get_setting('save_location'))
 
 class SingleSettingContainer(CTkFrame):
     def __init__(self, parent, controller=None, setting_name=None):

@@ -6,6 +6,7 @@ import numpy
 import pyfirmata
 import threading
 import data_generation
+import settings
 
 from numpy import ndarray
 from dataclasses import dataclass, field
@@ -30,6 +31,7 @@ class AnalogReaderThread(threading.Thread):
             self.analog_values = []
 
         except:
+            print('Analog reader improperly setup.')
             raise self.AnalogReaderException('An issue occured while setting up analog reader. Ensure hardware is connected.')           
 
     def stop(self):

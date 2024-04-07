@@ -5,6 +5,7 @@ import sys
 import taglib
 
 sys.path.append('src')
+import settings
 import database_manager as db
 import hardware_input as hi
 import numpy as np
@@ -13,18 +14,19 @@ from database_manager import DmgData
 
 
 TEST_FOLDER = os.path.dirname(__file__)
-TEST_DB_FILE_PATH = os.path.join(TEST_FOLDER, './testdb')
+TEST_SAVE_LOCATION = os.path.join(TEST_FOLDER, './testdb')
 
 
 def test_initialize_db():
     '''Test that the database is setup properly via its initialize function.'''
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
     # check db file exists in correct location
-    db_path = os.path.join(TEST_DB_FILE_PATH, 'test.db')
+    db_path = os.path.join(TEST_SAVE_LOCATION, 'db/test.db')
     assert os.path.isfile(db_path)
 
     # check db contains the expected tables
@@ -42,10 +44,13 @@ def test_initialize_db():
         assert value in db_tables
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 def test_save_test_data_to_file():
-    db.configure(files_location=TEST_DB_FILE_PATH)
+
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION)
     data = DmgData()
     data.audio_data = np.ones((10,3))
     data.trigger_data = np.zeros((10,1))
@@ -53,15 +58,19 @@ def test_save_test_data_to_file():
     data.sample_rate = 100
     data.is_processed = True
     
-    path = os.path.join(TEST_DB_FILE_PATH, 'test_wav.wav')
+    path = os.path.join(TEST_SAVE_LOCATION, 'files/test_wav.wav')
     db._save_test_data_to_file(path, data)
 
     with taglib.File(path) as file:
         assert file.tags['CHANNELS'][0] == '3'
+        assert file.tags['PROCESSED'][0] == 'True'
     os.remove(path)
+    os.remove(settings._CONFIG_FILE_PATH)
 
 def test_read_test_data_from_file():
-    db.configure(files_location=TEST_DB_FILE_PATH)
+
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION)
     data = DmgData()
     data.audio_data = np.ones((10,3))
     data.trigger_data = np.zeros((10,1))
@@ -69,24 +78,25 @@ def test_read_test_data_from_file():
     data.sample_rate = 100
     data.is_processed = True
     
-    path = os.path.join(TEST_DB_FILE_PATH, 'test_wav.wav')
+    path = os.path.join(TEST_SAVE_LOCATION, 'files/test_wav.wav')
     db._save_test_data_to_file(path, data)
     new_data = db._read_test_data_from_file(path)
     os.remove(path)
 
-    print(new_data.audio_data)
-    print(new_data.trigger_data)
-    print(new_data.output_data)
+    for i in range (0, 10):
+        for j in range (0, 3):
+            assert new_data.audio_data[i][j] == data.audio_data[i][j]
+        assert new_data.trigger_data[i] == data.trigger_data[i]
+        assert new_data.output_data[i] == data.output_data[i]
+    assert new_data.sample_rate == data.sample_rate
+    assert new_data.is_processed == data.is_processed
 
-    #assert new_data.audio_data == data.audio_data
-    #assert new_data.trigger_data == data.trigger_data
-    #assert new_data.output_data == data.output_data
-    #assert new_data.sample_rate == data.sample_rate
-    #assert new_data.is_processed == data.is_processed
+    os.remove(settings._CONFIG_FILE_PATH)
 
 def test_create_test():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -112,12 +122,14 @@ def test_create_test():
     assert test_row == (1, 'Name1', now_date, 'Notes1', path)
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_create_tag():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -138,12 +150,14 @@ def test_create_tag():
         db._create_tag(con, 'group2')
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_create_tag_link():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -161,11 +175,14 @@ def test_create_tag_link():
     assert (3,) in tag_links
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_data_file_path_by_id():
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -176,12 +193,14 @@ def test_read_data_file_path_by_id():
     assert filepath == 'test1' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_linked_tag_ids_by_test_id():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -203,12 +222,14 @@ def test_read_linked_tag_ids_by_test_id():
     assert tag_ids == None
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_tag_id_by_value():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -222,12 +243,14 @@ def test_read_tag_id_by_value():
     assert db._read_tag_id_by_value(con, 'tag3') == 3
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_tag_value_by_id():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -243,12 +266,14 @@ def test_read_tag_value_by_id():
     assert db._read_tag_value_by_tag_id(con, 4) == 'tag4'
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_all_tag_values():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -266,11 +291,14 @@ def test_read_all_tag_values():
         assert value in read_tag_values
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_test_id_by_name():
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -285,12 +313,14 @@ def test_read_test_id_by_name():
     assert db._read_test_id_by_name(con, 'test3') == 3
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_test_by_id():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -313,12 +343,14 @@ def test_read_test_by_id():
     assert db._read_test_by_id(con, 0) == None
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_test_ids_linked_to_tag():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -351,12 +383,14 @@ def test_read_test_ids_linked_to_tag():
     assert linked_test_ids == None
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_read_all_test_ids():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -381,12 +415,14 @@ def test_read_all_test_ids():
     assert existing_tests == None
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_update_test_by_name():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -410,12 +446,14 @@ def test_update_test_by_name():
     assert test[4] == 'test1' + '_' + time_stamp.strftime("%m%d%Y") + '.dmg'
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_update_tag_links():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -453,12 +491,14 @@ def test_update_tag_links():
     assert len(tags) == 5
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_delete_tag_link():
     
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -478,12 +518,14 @@ def test_delete_tag_link():
     assert (2,2) in remaining_tag_links
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_delete_test_by_id():
     
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -501,12 +543,14 @@ def test_delete_test_by_id():
     assert (3,) in test_ids
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_delete_tag_links_by_test_id():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -525,12 +569,14 @@ def test_delete_tag_links_by_test_id():
     assert (2,1) in tags
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_delete_tag_links_by_tag_id():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -549,12 +595,14 @@ def test_delete_tag_links_by_tag_id():
     assert (1,3) in tags
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 def test_delete_tag_by_id():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_SAVE_LOCATION, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
@@ -573,18 +621,21 @@ def test_delete_tag_by_id():
     assert tags == None
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_SAVE_LOCATION, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 
 
 """ Test Function Template
 
 def test_():
 
-    db.configure(database_file_path=TEST_DB_FILE_PATH, database_file_name='test.db')
+    settings.__init__()
+    db.configure(save_location=TEST_DB_FILE_PATH, database_file_name='test.db')
     con = db._connect()
     cur = con.cursor()
 
     con.close()
-    os.remove(os.path.join(TEST_DB_FILE_PATH, 'test.db'))
+    os.remove(os.path.join(TEST_DB_FILE_PATH, 'db/test.db'))
+    os.remove(settings._CONFIG_FILE_PATH)
 """
 
