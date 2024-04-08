@@ -128,6 +128,8 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, sampleRat
         damage_score[0] = trigger_noise   #becasue this number will always be insignificant
 
 
+
+    #OUTPUT CONFIG
     #if there are at least two identical consecutive scorings , range of the score will be packed as a tuple and included in the output. Format: [start_time_ms, end_time_ms, score]
     consecutive_scores = []
     start_index = 0
@@ -135,7 +137,7 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, sampleRat
         if damage_score[i] != damage_score[i-1]:
             if start_index != i - 1:
                 # Found a range of consecutive scores
-                consecutive_scores.append((start_index/sampleRate, i /sampleRate, damage_score[start_index]))
+                consecutive_scores.append((start_index/sampleRate, i/sampleRate, damage_score[start_index]))
             start_index = i
 
     # Check for the last range if it continues to the end
