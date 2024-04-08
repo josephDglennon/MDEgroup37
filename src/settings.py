@@ -11,11 +11,12 @@ _CONFIG_FILE_PATH = os.path.join(_CONFIG_FILE_LOCATION, 'dmg-config.yaml')
 _DEFAULT_SETTINGS = {
     'database_file_name': 'dmg.db',
     'save_location': os.path.join(_ABSOLUTE_PATH, '../dmgdevicestorage'),
-    'database_file_location': os.path.join(_ABSOLUTE_PATH, 'db'),
-    'files_location': os.path.join(_ABSOLUTE_PATH, 'files'),
     'process_mode': 'ANALYTICAL',
-    'com_port': '',
-    'active_device': ''
+    'trigger_port': 'COM4',
+    'trigger_pin': 'a:0:i',
+    'active_device': '',
+    'audio_device_id': '1',
+    'audio_channels': '2'
 }
 
 
@@ -37,6 +38,10 @@ __init__()
 
 
 def get_setting(name: str):
+    '''Access the config file on disk and return the current value of the
+    specified settings.
+    '''
+
     with open(_CONFIG_FILE_PATH, 'r') as file:
         settings_file = yaml.safe_load(file)
         try:
@@ -46,6 +51,11 @@ def get_setting(name: str):
 
 
 def configure_setting(name: str, value: str):
+    '''Access the config file on disk and update the specified setting to
+    the specified value. 
+    
+    If the specified setting does not exist in the config file, it is added.
+    '''
 
     settings_file = None
 
@@ -62,6 +72,10 @@ def configure_setting(name: str, value: str):
 
 
 def _get_settings():
+    '''Outputs a dictionary representing the current status of the
+    config file.
+    '''
+
     with open(_CONFIG_FILE_PATH, 'r') as file:
         return yaml.safe_load(file)
     

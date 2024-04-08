@@ -460,9 +460,12 @@ def _save_test_data_to_file(path: str, data: DmgData):
     channel, a meta tag is added to designate a file 'processed'
     ''' 
     
+    if (data.trigger_data is None):
+        print('trigger data nonexistent')
+
     # --------------------------------------------------------------------------------------- TEMPORARY
-    if (data.trigger_data is not ndarray):
-        data.trigger_data = numpy.zeros((len(data.audio_data),1)) # zero-filled test array
+    #if (data.trigger_data is not ndarray):
+    #    data.trigger_data = numpy.zeros((len(data.audio_data),1)) # zero-filled test array
 
     # check if audio and trigger data is present 
     if (data.audio_data is not None) and (data.trigger_data is not None):
@@ -475,10 +478,13 @@ def _save_test_data_to_file(path: str, data: DmgData):
 
         # combine all data channels into single 'n x channel' array
         wav_channels = numpy.hstack((data.audio_data, data.trigger_data))
+        print(wav_channels[0:10])
         if data.is_processed:
             assert data.output_data is not None
             # add output channel if exists
-            wav_channels = numpy.hstack((wav_channels, data.output_data))
+            wav_channels = numpy.append(wav_channels, data.output_data, 1)
+
+            print(wav_channels[0:10])
 
         # pack wav_channels into a .wav file
         files_location = os.path.join(settings.get_setting('save_location'), 'files')

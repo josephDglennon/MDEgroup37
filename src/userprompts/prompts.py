@@ -1,4 +1,4 @@
-from typing import Callable, Tuple
+from typing import Callable
 from customtkinter import (
     CTkToplevel,
     CTkFrame,

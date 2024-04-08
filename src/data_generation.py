@@ -173,7 +173,6 @@ def _match_signals(sig_1, sr_1, sig_2, sr_2):
     return sig_1, sig_2, common_sr
 
 
-
 def main():
 
     builder = SampleBuilder()

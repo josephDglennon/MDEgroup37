@@ -1,6 +1,6 @@
 import data_generation
-import database_manager
-import device_controller
+import storage as storage
+import controller as controller
 import gui
 import hardware_input
 import settings

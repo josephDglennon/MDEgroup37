@@ -1,17 +1,13 @@
 
-import os
 import sounddevice
-import database_manager as db
+import storage as db
 import customtkinter
-import logging
-import datetime
 import threading
 import time
 import settings
-from database_manager import DatabaseManager
-from typing import Callable, Tuple
-from hardware_input import HardwareInput
-from database_manager import TestEntry
+import sensors
+from storage import DatabaseManager, TestEntry
+from typing import Callable
 from tkinter import filedialog
 from customtkinter import (
     CTk,
@@ -24,7 +20,6 @@ from customtkinter import (
     CTkScrollableFrame,
     CTkCheckBox,
     CTkProgressBar,
-    CTkToplevel,
     CTkSegmentedButton,
     CTkComboBox
 )
@@ -373,7 +368,7 @@ class SampleRecordingFrame(CTkFrame):
                          fg_color=CONTAINER_COLOR)
         
         self.timer_thread = None
-        self.rec_hardware = HardwareInput()
+        self.rec_hardware = sensors.Recorder()
         self.is_recording = False
         self.is_playing = False
         self.time_started_recording = None
@@ -485,7 +480,8 @@ class SampleRecordingFrame(CTkFrame):
         # capture data
         try:
             db_manager._active_test.data = self.rec_hardware.get_data()
-        except:
+        except Exception as e:
+            print(e)
             # exception due to no data existing.
             # nothing need be done here besides catching the exception.
             pass 
@@ -960,16 +956,6 @@ class SearchTable(CTkFrame):
         self.scroll_container.grid(row=1, column=0, padx=3, pady=3, sticky='nsew')
         self.scroll_container.grid_columnconfigure(0, weight=1)
 
-        # example entries
-        #test_entries = [
-        #    TestEntry(name='test1', creation_date=datetime.datetime.now(), tags=['bum', 'goats', 'nerds', 'bum', 'goats', 'nerds']),
-        #    TestEntry(name='test2', creation_date=datetime.datetime.now(), tags=['bum', 'goats', 'nerds']),
-        #    TestEntry(name='test3', creation_date=datetime.datetime.now(), tags=['bum', 'goats'])
-        #]
-
-        #for test in test_entries:
-        #    self.add_entry(test)
-
         existing_test_ids = db_manager.list_test_ids()
         existing_test_entries = []
 
@@ -1155,5 +1141,5 @@ class SingleSettingContainer(CTkFrame):
 
 if __name__ == '__main__':
     app = MainWindow()
-    app.protocol("WM_DELETE_WINDOW", app.on_close)
+    #app.protocol("WM_DELETE_WINDOW", app.on_close)
     app.mainloop()

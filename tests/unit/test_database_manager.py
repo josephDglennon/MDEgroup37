@@ -7,9 +7,7 @@ import taglib
 sys.path.append('src')
 import settings
 import database_manager as db
-import hardware_input as hi
 import numpy as np
-from numpy import ndarray
 from database_manager import DmgData
 
 
