@@ -20,3 +20,4 @@ dependencies:
     - pyfirmata
     - pytaglib
     - pyyaml
+    - git+https://github.com/zea2/DeviceManager
