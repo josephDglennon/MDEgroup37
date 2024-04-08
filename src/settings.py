@@ -14,7 +14,6 @@ _DEFAULT_SETTINGS = {
     'process_mode': 'ANALYTICAL',
     'trigger_port': 'COM4',
     'trigger_pin': 'a:0:i',
-    'active_device': '',
     'audio_device_id': '1',
     'audio_channels': '2'
 }

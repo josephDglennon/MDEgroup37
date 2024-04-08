@@ -1050,9 +1050,10 @@ class SettingsContextFrame(CTkFrame):
         audio_device_set = SingleSettingContainer(settings_scroll_container, setting_name='Audio Recording Device')
         audio_device_set.grid_columnconfigure(0, weight=0)
         audio_device_set.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
-        audio_device_selector = CTkComboBox(audio_device_set, values=['Device1', 'Device2', 'Device3'],
-                                            command=self.audio_device_selector_handler)
-        audio_device_selector.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
+        self.audio_device_selector = CTkComboBox(audio_device_set,
+                                            command=self.audio_device_selector_handler,
+                                            width=400)
+        self.audio_device_selector.grid(row=1, column=0, padx=10, pady=10, sticky='nsew')
         refresh_devices_button = CTkButton(audio_device_set, text='\u27F3',
                                            fg_color=BACKGROUND_COLOR,
                                            hover_color=BACKGROUND_COLOR_HIGHLIGHTED,
@@ -1096,6 +1097,7 @@ class SettingsContextFrame(CTkFrame):
         self.trigger_port_entry.insert(0, settings.get_setting('trigger_port'))
         self.save_path_entry.delete(0, 'end')
         self.save_path_entry.insert(0, settings.get_setting('save_location'))
+        self.refresh_devices_button_handler()
 
     def process_mode_selector_handler(self, value):
         
@@ -1109,10 +1111,14 @@ class SettingsContextFrame(CTkFrame):
             print('WTF?')
 
     def audio_device_selector_handler(self, value):
-        settings.configure_setting('active_device', value)
+        device_id = sensors.get_audio_device_id(value)
+        settings.configure_setting('audio_device_id', device_id)
 
     def refresh_devices_button_handler(self):
-        pass
+        devices = sensors.get_audio_device_names()
+        self.audio_device_selector.configure(values=devices)
+        self.audio_device_selector.set(devices[0])
+        self.audio_device_selector_handler(devices[0])
 
     def update_trigger_port_button_handler(self):
         trigger_port = self.trigger_port_entry.get()

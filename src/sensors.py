@@ -124,10 +124,19 @@ class AudioRecorder():
             outdata = np.concatenate(self._audio_blocks)
             return self._sample_rate, outdata
         
-def get_audio_devices():
-    pass
 
+def get_audio_device_names():
+    devices_data = sounddevice.query_devices()
+    device_names = []
+    for device in devices_data:
+        device_names.append(device['name'])
+    return device_names
 
+def get_audio_device_id(name: str):
+    device_data = sounddevice.query_devices(name)
+    device_id = device_data['index']
+    return device_id
+    
 
 
 class TriggerRecorder():
@@ -279,6 +288,9 @@ def match_signals(sig_1, sr_1, sig_2, sr_2):
 
 
 if __name__ == '__main__':
+
+    names = get_audio_device_names()
+    print(names)
 
     '''
     rec = Recorder()
