@@ -1,7 +1,7 @@
 
+
 import numpy as np
 from numpy import ndarray, zeros
-
 
 
 def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, threshold: float = 0.225) -> ndarray:
@@ -129,7 +129,6 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray) -> ndarra
     return damage_score
     
     
-
 def main():
     dmg_detections = np.array([    0, 0, 0, 0, 0, 0, 0, 0, 0,  1,  1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1,1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1])
     trigger_detections = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0,  1,  0, 0, 0, 0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0, 0, 0,0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0,  0,0,0,0,0,0,0,0])
