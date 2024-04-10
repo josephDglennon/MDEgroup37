@@ -1,5 +1,5 @@
 
-
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy import ndarray, zeros
 
@@ -127,7 +127,35 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray) -> ndarra
             damage_score[i] = 4
            
     return damage_score
+
+# ----
+
+def plot_dmg_data(audio_data, dmg_data, elapsed_time, audio_downsample_factor=50):
     
+    # Generate time axis
+    audio_downsampled = audio_data[::audio_downsample_factor]
+    time_axis = np.linspace(0, elapsed_time, len(audio_downsampled))
+    time_axis2 = np.linspace(0, elapsed_time, len(dmg_data))
+    
+    # Plot audio data
+    plt.figure(figsize=(10, 6))
+    plt.subplot(2, 1, 1)
+    plt.plot(time_axis, audio_downsampled)
+    plt.title('Audio Data')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude')
+    
+    # Plot trigger data
+    plt.subplot(2, 1, 2)
+    plt.plot(time_axis2, dmg_data)
+    plt.title('Damage Detections')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Value')
+    
+    plt.tight_layout()
+    plt.show()
+
+# ----  
     
 def main():
     dmg_detections = np.array([    0, 0, 0, 0, 0, 0, 0, 0, 0,  1,  1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1,1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1])

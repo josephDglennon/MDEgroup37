@@ -372,9 +372,12 @@ class EditTestContextFrame(CTkFrame):
                 elif process_mode == 'ANALYTICAL':
                     print('Analytical')
                     dmg_detections = processor.detect_damage_analytically(data.audio_data, data.sample_rate)
+                    time_elapsed = float(len(data.audio_data)/data.sample_rate)
+                    processor.plot_dmg_data(data.audio_data, dmg_detections, time_elapsed)
                 else:
                     raise Exception('Process mode is invalid.')
                
+            
             #dmg_score = processor.score_damage(dmg_detections, data.trigger_data, data.sample_rate)
 
             except Exception as e:
