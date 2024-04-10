@@ -40,7 +40,7 @@ def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, thre
     return dmg_detections
 
 
-def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_length: int) -> ndarray:
+def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int) -> ndarray:
     '''Using machine learning, detects occurances of damage in the sample.
     
     Parameters
@@ -57,7 +57,7 @@ def detect_damage_with_AI(audio_data: ndarray, audio_sample_rate: int, frame_len
         chunk of the input audio data. Values may be either 1 or 0 representing the 
         presence (or lack thereof) of damage in the sample.
     '''
-    pass
+    return None
 
 
 def score_damage(dmg_detections: ndarray, trigger_detections: ndarray) -> ndarray:

@@ -6,6 +6,7 @@ import threading
 import time
 import settings
 import sensors
+import signal_processor as processor
 from storage import DatabaseManager, TestEntry
 from typing import Callable
 from tkinter import filedialog
@@ -223,7 +224,7 @@ class EditTestContextFrame(CTkFrame):
         process_panel.grid_columnconfigure(0, weight=1)
         process_panel.grid_rowconfigure((0,1), weight=1)
         self.process_button = CTkButton(process_panel, text='Process Sample', width=250,
-                                        command=None,
+                                        command=self.process_button_handler,
                                         font=CTkFont(size=14),
                                         fg_color=CONFIRM_COLOR,
                                         hover_color=CONFIRM_COLOR_HIGHLIGHTED)
@@ -357,6 +358,29 @@ class EditTestContextFrame(CTkFrame):
             
         except SpawnPromptError:
             pass # prevents multiple prompts from spawning
+
+    def process_button_handler(self):
+        data = db_manager._active_test.data
+        if data:
+            try:
+                process_mode = settings.get_setting('process_mode')
+                dmg_detections = None
+                
+                if process_mode == 'MACHINE_LEARNING':
+                    print('Machine Learning')
+                    dmg_detections = processor.detect_damage_with_AI(data.audio_data, data.sample_rate)
+                elif process_mode == 'ANALYTICAL':
+                    print('Analytical')
+                    dmg_detections = processor.detect_damage_analytically(data.audio_data, data.sample_rate)
+                else:
+                    raise Exception('Process mode is invalid.')
+               
+            #dmg_score = processor.score_damage(dmg_detections, data.trigger_data, data.sample_rate)
+
+            except Exception as e:
+                print(e)
+        else:
+            print('<process_button_handler()> no data')
 
 
 class SampleRecordingFrame(CTkFrame):
