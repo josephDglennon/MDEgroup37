@@ -4,5 +4,5 @@ env/
 __pycache__/
 *.db
 dmgdevicestorage/
-audio_data/test_audio/*
-dmg-config.yaml
+audio_data/test_audio/
+config/
