@@ -3,9 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import ndarray, zeros
 
-
 def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, threshold: float = 0.225) -> ndarray:
-    '''Using analytical means, detects occurances of damage in the sample.
+    '''Using analytical means, detects occurrences of damage in the sample.
     
     Parameters
     ----------
@@ -13,6 +12,9 @@ def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, thre
         The raw amplitude data for the audio sample
     audio_sample_rate: int
         The sample rate with which the audio data was recorded
+    threshold: float, optional
+        The threshold for detecting significant changes in amplitude,
+        defaults to 0.225.
 
     Return
     ------
@@ -22,20 +24,28 @@ def detect_damage_analytically(audio_data: ndarray, audio_sample_rate: int, thre
         presence (or lack thereof) of damage in the sample.
     '''
     # Calculate the number of frames per quarter-second
-    frames_per_qtr_sec = int(0.25 * audio_sample_rate)
+    frames_per_qtr_sec = int(0.2 * audio_sample_rate)
 
-    # Calculate the mean amplitude for the first second
-    avg_amplitude = np.mean(np.abs(audio_data[:frames_per_qtr_sec]))
+    # Calculate the index corresponding to the 0.4 second mark
+    start_index = int(0.4 * audio_sample_rate)
+
+    # Initialize the damage detections array with zeros for the first second
+    dmg_detections = np.zeros(len(audio_data), dtype=int)
 
     # Detect significant changes in amplitude
-    dmg_detections = np.zeros(len(audio_data), dtype=int)
-    for i in range(0, len(audio_data), frames_per_qtr_sec):
+    amp_threshold = .002  # Threshold for minimum amplitude to consider
+    for i in range(start_index, len(audio_data), frames_per_qtr_sec):
         chunk = audio_data[i:i+frames_per_qtr_sec]
         chunk_mean = np.mean(np.abs(chunk))
-        if abs(chunk_mean - avg_amplitude) > threshold * avg_amplitude:
-            # Timestamp every frame 0.25 seconds after the detected frame
-            for j in range(i, min(i + frames_per_qtr_sec, len(audio_data))):
-                dmg_detections[j] = 1
+        if chunk_mean < amp_threshold:
+            dmg_detections[i:i+frames_per_qtr_sec] = 0
+            continue
+        if i >= start_index + frames_per_qtr_sec:  # Start averaging after 0.4 seconds
+            avg_amplitude = np.mean(np.abs(audio_data[start_index:i]))
+            if abs(chunk_mean - avg_amplitude) > threshold * avg_amplitude:
+                # Timestamp every frame 0.2 seconds after the detected frame
+                for j in range(i, min(i + frames_per_qtr_sec, len(audio_data))):
+                    dmg_detections[j] = 1
 
     return dmg_detections
 
