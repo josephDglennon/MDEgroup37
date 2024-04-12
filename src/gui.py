@@ -229,8 +229,10 @@ class EditTestContextFrame(CTkFrame):
                                         fg_color=CONFIRM_COLOR,
                                         hover_color=CONFIRM_COLOR_HIGHLIGHTED)
         self.process_button.grid(row=0, column=0)
-        self.progress_bar = CTkProgressBar(process_panel, width=250)
+        self.progress_bar = CTkProgressBar(process_panel, width=250,
+                                           determinate_speed=2)
         self.progress_bar.grid(row=1, column=0, pady=10)
+        self.progress_bar.set(0)
 
         # insert tag select frame
         self.tag_select_frame = TagContainer(self)
@@ -284,6 +286,9 @@ class EditTestContextFrame(CTkFrame):
 
         # load and update recording time stamps if a recording sample exists
         self.sample_recording_frame.update(test_data.data)
+
+        # update summary
+        self.output_summary.summarize(test_data.data)
 
         # indicate linked tags via checkboxes
         self.tag_select_frame.sync_tags(test_data.tags)
@@ -361,7 +366,9 @@ class EditTestContextFrame(CTkFrame):
 
     def process_button_handler(self):
         data = db_manager._active_test.data
+        self.progress_bar.set(0)
         if data:
+            self.progress_bar.start()
             try:
                 process_mode = settings.get_setting('process_mode')
                 dmg_detections = None
@@ -373,15 +380,17 @@ class EditTestContextFrame(CTkFrame):
                     print('Analytical')
                     dmg_detections = processor.detect_damage_analytically(data.audio_data, data.sample_rate)
                     time_elapsed = float(len(data.audio_data)/data.sample_rate)
-                    processor.plot_dmg_data(data.audio_data, dmg_detections, time_elapsed)
+                    #processor.plot_dmg_data(data.audio_data, dmg_detections, time_elapsed)
                 else:
                     raise Exception('Process mode is invalid.')
                
-            
-            #dmg_score = processor.score_damage(dmg_detections, data.trigger_data, data.sample_rate)
+                data.output_data = dmg_detections
+                self.output_summary.summarize(data)
 
             except Exception as e:
                 print(e)
+            self.progress_bar.set(1)
+            self.progress_bar.stop()
         else:
             print('<process_button_handler()> no data')
 
@@ -528,7 +537,6 @@ class SampleRecordingFrame(CTkFrame):
             self.sample_cursor_time.configure(text=('00:00:00 / ' + self.recording_length_string))
 
 
-
 class OutputSummaryFrame(CTkFrame):
     """Frame which displays the results of running the processor on the
     recorded sample.
@@ -539,12 +547,49 @@ class OutputSummaryFrame(CTkFrame):
                          fg_color=CONTAINER_COLOR,
                          border_color=CONTAINER_BORDER_COLOR)
 
-        self.columnconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=0)
+        self.grid_rowconfigure(1, weight=1)
 
         self.summary_header = CTkLabel(self,
                                        text='Output Summary',
                                        font=CTkFont(size=18, weight="bold"))
-        self.summary_header.grid(row=0, column=0, sticky='nsew', pady=5, padx=5)
+        self.summary_header.grid(row=0, column=0, sticky='new', pady=5, padx=5)
+
+        self.output_text_box = CTkTextbox(self, fg_color=CONTAINER_COLOR)
+        self.output_text_box.grid(row=1, column=0, sticky='nsew', padx=5, pady=0)
+
+    def summarize(self, data: db.DmgData):
+        if data:
+            try:
+
+                damage_scores, timestamps = processor.score_damage(
+                    dmg_detections=data.output_data,
+                    trigger_detections=data.trigger_data,
+                    sampleRate=data.sample_rate
+                )
+
+                self.display(timestamps)
+
+            except Exception as e:
+                print(e)
+                self.output_text_box.delete("1.0", 'end')
+        else:
+            self.output_text_box.delete("1.0", 'end')
+
+    def display(self, timestamps):
+        formatted_output = ''
+
+        formatted_output += '\t   start         end        score\n'
+        formatted_output += '\t   ___________________________\n'
+        for stamp in timestamps:
+            start_time = stamp[0]
+            end_time = stamp[1]
+            score = stamp[2]
+            formatted_output += '\t   {:<11.2f}   {:<11.2f}   {:<11}\n'.format(start_time, end_time, int(score))
+
+        self.output_text_box.delete("1.0", 'end')
+        self.output_text_box.insert('end', formatted_output)
 
 
 class TagItem(CTkFrame):

@@ -154,8 +154,6 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, sampleRat
         trigger_noise = 100 - (trigger_noise*2)
         damage_score[0] = trigger_noise   #becasue this number will always be insignificant
 
-
-
     #OUTPUT CONFIG
     #if there are at least two identical consecutive scorings , range of the score will be packed as a tuple and included in the output. Format: [start_time_ms, end_time_ms, score]
     consecutive_scores = []
@@ -200,6 +198,7 @@ def plot_dmg_data(audio_data, dmg_data, elapsed_time, audio_downsample_factor=50
     
     plt.tight_layout()
     plt.show()
+    
 
 def main():     #test1: 59 element array recorded at a simulated 5 Hz .... 11.8 was expected and is observed
     dmg_detections = np.array([    0, 0, 0, 0, 0, 0, 0, 0, 0,  1,  1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1, 1, 1, 1, 1, 1, 1,1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1,  1,1,1,1,1,1,1,1])
