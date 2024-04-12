@@ -116,6 +116,7 @@ def score_damage(dmg_detections: ndarray, trigger_detections: ndarray, sampleRat
     trigger_on = False
     trigger_on_frame = -1
     trigger_off_frame = -1
+    time_from_off_frame = 0
 
     # Calculate the number of frames corresponding to 5 seconds
     num_frames_5_seconds = sampleRate * 5

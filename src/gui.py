@@ -1,4 +1,6 @@
 
+
+import numpy as np
 import sounddevice
 import storage as db
 import customtkinter
@@ -380,7 +382,7 @@ class EditTestContextFrame(CTkFrame):
                     print('Analytical')
                     dmg_detections = processor.detect_damage_analytically(data.audio_data, data.sample_rate)
                     time_elapsed = float(len(data.audio_data)/data.sample_rate)
-                    #processor.plot_dmg_data(data.audio_data, dmg_detections, time_elapsed)
+                    processor.plot_dmg_data(data.audio_data, dmg_detections, time_elapsed)
                 else:
                     raise Exception('Process mode is invalid.')
                
@@ -562,10 +564,17 @@ class OutputSummaryFrame(CTkFrame):
     def summarize(self, data: db.DmgData):
         if data:
             try:
+                length = len(data.output_data)
+                start_middle = length // 3
+                end_middle = 2 * length // 3
+
+                # Create the array with the middle third as 1 and the outer thirds as 0
+                trigger_detections = np.zeros(length)
+                trigger_detections[start_middle:end_middle] = 1
 
                 damage_scores, timestamps = processor.score_damage(
                     dmg_detections=data.output_data,
-                    trigger_detections=data.trigger_data,
+                    trigger_detections=trigger_detections,
                     sampleRate=data.sample_rate
                 )
 
