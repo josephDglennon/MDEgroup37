@@ -339,9 +339,10 @@ class DatabaseManager:
 
             # delete relevant test files
             path = test_info[4]
-
             files_location = os.path.join(settings.get_setting('save_location'), 'files')
-            os.remove(os.path.join(files_location, path))
+            file_path = os.path.join(files_location, path)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
  
         con.commit()
         con.close()
