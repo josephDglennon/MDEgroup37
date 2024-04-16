@@ -6,13 +6,10 @@ The following is a quick setup guide to install and run the main application. A 
 2. Install Anaconda for windows at the following link: [Anaconda Download](https://www.anaconda.com/download)
 3. Using the installed Anaconda prompt, navigate to the MDEgroup37 directory on your machine.
 4. Run the following commands from powershell to generate the Anaconda environment, install the required dependencies, and activate the new environment. You will need to navigate to this directory and run the activate command each time you open a new terminal in order to run the application.
-
-`$ conda env create -f environment.yml`
-
-`$ conda activate dmg-env`
-
+   - `$ conda env create -f environment.yml`
+   - `$ conda activate dmg-env`
 5. To run the application, from the same directory in powershell, run the following command:
-`$ python ./src/main.py`
+   - `$ python ./src/main.py`
 6. To set up the measurement apparatus, plug an Arduino with standard Firmata installed into a USB port on your machine as well as the desired audio input device. 
    - Arduino IDE can be installed at the following link:
      [Arduino IDE Download](https://support.arduino.cc/hc/en-us/articles/360019833020-Download-and-install-Arduino-IDE)
