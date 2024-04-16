@@ -2,7 +2,7 @@
 
 The following is a quick setup guide to install and run the main application. A basic working knowledge of Windows command prompt is assumed for this guide.
 
-1. Clone the following github repository to your windows machine: [REPO](https://github.com/josephDglennon/MDEgroup37.git)
+1. Clone the following github repository to your windows machine: https://github.com/josephDglennon/MDEgroup37.git
 2. Install Anaconda for windows at the following link: [Anaconda Download](https://www.anaconda.com/download)
 3. Using the installed Anaconda prompt, navigate to the MDEgroup37 directory on your machine.
 4. Run the following commands from powershell to generate the Anaconda environment, install the required dependencies, and activate the new environment. You will need to navigate to this directory and run the activate command each time you open a new terminal in order to run the application.
